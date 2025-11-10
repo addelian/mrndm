@@ -11,7 +11,7 @@ authbody=$(jq --null-input \
 
 retrieve_memos() {
     if [[ -n "$token" ]]; then
-        curl -u "$username":"$password" -H "Authorization: Token $token" http://127.0.0.1:8000/memos/
+        curl -u "$username":"$password" -H "Authorization: Token $token" $baseApiUrl/memos/
         exit 0
     fi
     authenticate
@@ -20,7 +20,7 @@ retrieve_memos() {
 
 retrieve_memo() {
     if [[ -n "$token" ]]; then
-        curl -u "$username":"$password" http://127.0.0.1:8000/memos/$1/
+        curl -u "$username":"$password" -H "Authorization: Token $token" $baseApiUrl/memos/$1/
         exit 0
     fi
     authenticate
@@ -28,7 +28,7 @@ retrieve_memo() {
 }
 
 authenticate() {
-    tokenjson=$(curl -X POST -H "Content-Type:application/json" -d "$authbody" "http://127.0.0.1:8000/auth/")
+    tokenjson=$(curl -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/auth/")
     token=$(echo $tokenjson | jq -r '.token')
     echo " " >> ./mrndm.config
     echo "token=$token" >> ./mrndm.config
