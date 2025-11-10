@@ -4,20 +4,47 @@ set -e
 
 . ./mrndm.config
 
+authbody=$(jq --null-input \
+  --arg user "$username" \
+  --arg pass "$password" \
+  '{username: $user, password: $pass}')
+
 retrieve_memos() {
-    curl -u "$username":"$password" http://127.0.0.1:8000/memos/
+    if [[ -n "$token" ]]; then
+        curl -u "$username":"$password" -H "Authorization: Token $token" http://127.0.0.1:8000/memos/
+        exit 0
+    fi
+    authenticate
+    retrieve_memos
 }
 
 retrieve_memo() {
-    curl -u "$username":"$password" http://127.0.0.1:8000/memos/$1/
+    if [[ -n "$token" ]]; then
+        curl -u "$username":"$password" http://127.0.0.1:8000/memos/$1/
+        exit 0
+    fi
+    authenticate
+    retrieve_memo
 }
 
-echo $1
-echo $2
+authenticate() {
+    tokenjson=$(curl -X POST -H "Content-Type:application/json" -d "$authbody" "http://127.0.0.1:8000/auth/")
+    token=$(echo $tokenjson | jq -r '.token')
+    echo " " >> ./mrndm.config
+    echo "token=$token" >> ./mrndm.config
+}
 
-if [ $1 = "view" ] && [[ $2 =~ ^[0-9]+$ ]]; then
+if [ "$1" = "view" ] && [[ $2 =~ ^[0-9]+$ ]]; then
     retrieve_memo $2
     exit 0
+fi
+
+if [ "$1" = "auth" ]; then
+    if [[ -n "$token" ]]; then
+        echo "'token' field already present in config. If it's invalid, please remove that line before re-running this command."
+        exit 0
+    fi
+    authenticate
 fi
 
 retrieve_memos
