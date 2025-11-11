@@ -8,11 +8,11 @@
 
 ## Usage
 
-`mrndm "We should swap Christmas and Valentine's Day"`
+`mrndm -m "We should swap Christmas and Valentine's Day"`
 
 - save this memo and assign the MISC category by default
 
-`mrndm "Call congress about swapping Christmas and Valentine's Day" RMND`
+`mrndm -m "Call congress about swapping Christmas and Valentine's Day" RMND`
 
 - save this memo and assign the designated RMND category
 
@@ -31,4 +31,4 @@
 
 `mrndm delete`
 
-- delete your most recent memo
+- delete your most recent memo (returns it after deletion)
