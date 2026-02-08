@@ -12,7 +12,9 @@ if [[ -n "$3" ]]; then
     category=$3
 fi
 
+
 # If no arguments supplied, show a short usage summary and exit
+# TODO pare this down, add --help flag & put all this there
 if [[ -z "$command" ]]; then
         cat <<'USAGE'
 Usage: mrndm [command] [options*]
