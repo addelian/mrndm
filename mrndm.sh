@@ -158,10 +158,11 @@ submit() {
         exit 0
     fi
     if [[ -n "$token" ]]; then
-        curl -X POST \
+        curl -s -X POST \
         -H "Authorization: Token $token" \
         -H "Content-Type:application/json" \
-        -d "$postbody" $baseApiUrl/memos/
+        -d "$postbody" $baseApiUrl/memos/ | \
+        jq -r '"Saved: " + .body + "\nCategory: " + .category'
         exit 0
     fi
     authenticate
@@ -170,13 +171,43 @@ submit() {
 
 delete() {
     if [[ -n "$token" ]]; then
-        curl -X DELETE \
+        # If no ID provided, find and delete the most recent memo
+        if [[ -z "$option" ]]; then
+            memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/" | \
+            jq -r '.results | sort_by(-.id) | .[0]')
+            
+            memo_id=$(echo "$memo_to_delete" | jq -r '.id')
+            
+            if [[ -z "$memo_id" || "$memo_id" = "null" ]]; then
+                echo "No memos to delete."
+                exit 0
+            fi
+            
+            # Delete the memo
+            curl -s -X DELETE \
+            -H "Authorization: Token $token" \
+            "$baseApiUrl/memos/$memo_id/" > /dev/null
+            
+            # Return the deleted memo formatted
+            echo "Deleted:"
+            echo "$memo_to_delete" | jq -r '.body + " (" + (.id|tostring) + ")"'
+            exit 0
+        fi
+        
+        # If ID provided, fetch the memo first, then delete it
+        memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$option/")
+        
+        curl -s -X DELETE \
         -H "Authorization: Token $token" \
-        $baseApiUrl/memos/$option/
+        "$baseApiUrl/memos/$option/" > /dev/null
+        
+        # Display the deleted memo
+        echo "Deleted:"
+        echo "$memo_to_delete" | jq -r '.body + " (" + (.id|tostring) + ")"'
         exit 0
     fi
     authenticate
-    submit
+    delete
 }
 
 retrieve_memo() {
