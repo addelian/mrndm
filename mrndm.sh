@@ -106,6 +106,32 @@ init() {
     exit 0
 }
 
+install_self() {
+    target_dirs=("$HOME/.local/bin" "$HOME/bin" "/usr/local/bin")
+    for dir in "${target_dirs[@]}"; do
+        if [[ -d "$dir" ]] || mkdir -p "$dir" 2>/dev/null; then
+            dest="$dir/mrndm"
+            if cp "$0" "$dest" 2>/dev/null; then
+                chmod +x "$dest"
+                echo "Installed to $dest"
+                echo "Ensure $dir is on your PATH (add to ~/.profile or ~/.bashrc if needed)."
+                exit 0
+            else
+                if [[ "$dir" = "/usr/local/bin" ]]; then
+                    echo "Permission needed to copy to $dir; attempting with sudo..."
+                    if sudo cp "$0" "$dest" 2>/dev/null; then
+                        sudo chmod +x "$dest"
+                        echo "Installed to $dest (with sudo)"
+                        exit 0
+                    fi
+                fi
+            fi
+        fi
+    done
+    echo "Failed to install. Copy the script to a directory on your PATH, e.g. $HOME/.local/bin or /usr/local/bin"
+    exit 1
+}
+
 case $command in
 
     init) 
@@ -122,6 +148,10 @@ case $command in
     
     -m)
         submit
+        ;;
+
+    install)
+        install_self
         ;;
 
 esac

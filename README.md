@@ -24,7 +24,7 @@
 
 - view your last five memos
 
-`mrndm view --all`
+`mrndm view -a (--all)`
 
 - view all of your memos 
 - i make no promises that this is a good idea
@@ -39,4 +39,5 @@
 
 `mrndm auth`
 
-- explicitly generate a new token to establish a handshake with the mrndm server. this is just a failsafe in case something goes wrong, and you shouldn't have to ever call this manually - it's automatic as a part of the above transactions.
+- explicitly generate a new token to establish a handshake with the mrndm server. 
+- this is just a failsafe in case something goes wrong, and you shouldn't have to ever call this manually, as it's automatic as a part of the above transactions.
