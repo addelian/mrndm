@@ -20,7 +20,7 @@ authbody=$(jq --null-input \
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        init|auth|view|-m|install)
+        -i|init|-a|auth|-v|view|-va|-m|memo|-d|delete|install)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -74,6 +74,17 @@ submit() {
     submit
 }
 
+delete() {
+    if [[ -n "$token" ]]; then
+        curl -X DELETE \
+        -H "Authorization: Token $token" \
+        $baseApiUrl/memos/$option/
+        exit 0
+    fi
+    authenticate
+    submit
+}
+
 retrieve_memo() {
     if [[ -n "$token" ]]; then
         curl -H "Authorization: Token $token" $baseApiUrl/memos/$1/
@@ -97,7 +108,7 @@ view() {
         retrieve_memo $option
         exit 0
     fi
-    if [[ $option = "--all" || $option = "-a" ]]; then
+    if [[ $option = "all" || $option = "-a" ]]; then
         retrieve_memos
         exit 0
     fi
@@ -163,20 +174,28 @@ install_self() {
 
 case $command in
 
-    init) 
+    -i | init) 
         init
         ;;
 
-    auth)
+    -a | auth)
         checkauth
         ;;
 
-    view)
+    -v | view)
         view
         ;;
+
+    -va)
+        retrieve_memos
+        ;;
     
-    -m)
+    -m | memo)
         submit
+        ;;
+
+    -d | delete)
+        delete
         ;;
 
     install)
@@ -184,5 +203,3 @@ case $command in
         ;;
 
 esac
-
-retrieve_memos
