@@ -41,7 +41,16 @@ postbody=$(jq --null-input \
 
 retrieve_memos() {
     if [[ -n "$token" ]]; then
-        curl -s -H "Authorization: Token $token" $baseApiUrl/memos/ | jq -r '.results | group_by(.category) | sort_by(.[0].category) | reverse | map("| --- " + .[0].category + " --- |\n" + (sort_by(-.id) | map(.body + " (" + (.id|tostring) + ")") | join("\n"))) | join("\n\n")'
+        curl -s -H "Authorization: Token $token" $baseApiUrl/memos/ | \
+        jq -r '.results | 
+            group_by(.category) | 
+            sort_by(.[0].category) | 
+            reverse | 
+            map("| --- " + .[0].category + " --- |\n" + 
+                (sort_by(-.id) | 
+                 map(.body + " (" + (.id|tostring) + ")") | 
+                 join("\n"))) | 
+            join("\n\n")'
         exit 0
     fi
     authenticate
@@ -50,7 +59,8 @@ retrieve_memos() {
 
 submit() {
     if [[ $category != "MISC" && $category != "RMND" && $category != "TODO" ]]; then
-        echo "Invalid category choice - options are MISC, RMND, or TODO (defaults to MISC if excluded)"
+        echo "Invalid category choice."
+        echo "Options are MISC, RMND, or TODO (defaults to MISC if excluded)"
         exit 0
     fi
     if [[ -n "$token" ]]; then
@@ -99,7 +109,8 @@ view() {
 
 checkauth() {
     if [[ -n "$token" ]]; then
-        echo "'token' field already present in config. If it's invalid, please remove that line before re-running this command."
+        echo "'token' field already present in config."
+        echo "If it's invalid, please remove that line before re-running this command."
         exit 0
     fi
     authenticate
@@ -145,7 +156,8 @@ install_self() {
             fi
         fi
     done
-    echo "Failed to install. Copy the script to a directory on your PATH, e.g. $HOME/.local/bin or /usr/local/bin"
+    echo "Failed to install."
+    echo "Copy the script to a directory on your PATH, e.g. $HOME/.local/bin or /usr/local/bin"
     exit 1
 }
 
