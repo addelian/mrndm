@@ -51,5 +51,4 @@
 
 `mrndm auth`
 
-- explicitly generate a new token to establish a handshake with the mrndm server. 
-- this is just a failsafe in case something goes wrong, and you shouldn't have to ever call this manually, as it's automatic as a part of the above transactions.
+- explicitly generate a new token to establish a handshake with the mrndm server. This is just a failsafe in case something goes wrong, and you shouldn't have to ever call this manually, as it's automatically handled as a part of the above transactions.
