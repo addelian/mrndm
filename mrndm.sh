@@ -17,6 +17,24 @@ authbody=$(jq --null-input \
     --arg pass "$password" \
     '{username: $user, password: $pass}')
 
+# If the first arg isn't a known command, treat it as the memo body
+echo "command: $command"
+if [[ -n $command ]]; then
+    case $command in
+        init|auth|view|-m|install)
+            ;; # known commands; leave as-is
+        *)
+            option=$command
+            if [[ -n "$2" ]]; then
+                category=$2
+            else
+                category="MISC"
+            fi
+            command="-m"
+            ;;
+    esac
+fi
+
 postbody=$(jq --null-input \
     --arg body "$option" \
     --arg category "$category" \
