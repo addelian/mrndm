@@ -12,44 +12,62 @@ if [[ -n "$3" ]]; then
     category=$3
 fi
 
-
-# If no arguments supplied, show a short usage summary and exit
-# TODO pare this down, add --help flag & put all this there
-if [[ -z "$command" ]]; then
-        cat <<'USAGE'
+show_full_help() {
+        cat <<'FULL'
 Usage: mrndm [command] [options*]
 
 (path/to/package/)mrndm.sh install
-    - copies the script into a PATH directory so you can run `mrndm` directly. Otherwise, you'll have to run these all with `bash mrndm.sh` or `./mrndm.sh` from the package directory.
+    - Copies the script into a PATH directory so you can run `mrndm` directly.
+      Otherwise, you'll need to run all the below commands with `./mrndm.sh` instead of `mrndm`
 
 mrndm init (-i)
-    - registers a username/password (first run)
+    - Registers a username and password and saves them to the config file. Only needs to be done once.
 
 mrndm "Your memo text"
-    - saves a memo (category defaults to MISC)
+    - Saves a memo (defaults to MISC)
 
 mrndm "Buy milk" TODO
-    - saves a memo under TODO, RMND, or MISC
+    - Saves a memo under TODO, RMND, or MISC
 
 mrndm view (-v)
-    - shows your last five memos (grouped by category)
+    - Shows your last five memos (grouped by category)
 
 mrndm view <#>
-    - shows the memo with ID <#>
+    - Shows the memo with ID <#>
 
-mrndm view <category>
-    - shows all memos in the specified category (TODO, RMND, MISC)
+mrndm view (RMND/TODO/MISC)
+    - Shows all memos in the designated category
 
 mrndm view all (-va)
-    - shows all memos in all categories (grouped and ordered)
+    - Shows all memos (Grouped by category, sorted newest to oldest)
 
 mrndm delete
-    - deletes your most recent memo (returns it after deletion)
-
+    - Deletes your most recent memo (returns it after deletion)
+    
 mrndm delete <#>
-    - deletes memo with ID <#>
+    - Deletes the memo with ID <#>
 
-For full help, run: mrndm view --help
+mrndm auth
+    - Explicitly generates a new token.
+      Only needed if you need to refresh an expired token, or if the token field is missing from the config file
+FULL
+}
+
+# If no arguments supplied, show a minimal quick usage summary and exit
+if [[ -z "$command" ]]; then
+        cat <<'USAGE'
+Usage:
+
+mrndm "Your memo text"
+    - Saves a memo
+
+mrndm view
+    - Shows your last five memos (grouped by category)
+
+mrndm delete
+    - Deletes your most recent memo (or use an ID: mrndm delete <#>)
+
+Run `mrndm help (mrndm -h)` for full usage information.
 USAGE
         exit 0
 fi
@@ -62,7 +80,7 @@ authbody=$(jq --null-input \
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-a|auth|-v|view|-va|-m|memo|-d|delete|install)
+        -i|init|-a|auth|-v|view|-va|-m|memo|-d|delete|install|-h|help)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -305,6 +323,11 @@ case $command in
 
     install)
         install_self
+        ;;
+
+    -h | help)
+        show_full_help
+        exit 0
         ;;
 
 esac
