@@ -8,6 +8,10 @@
 
 ## Usage
 
+`(path/to/package/)mrndm.sh install`
+
+- installs the script into a PATH directory so you can invoke `mrndm` directly
+
 `mrndm init (-i)`
 
 - run this the first time you use mrndm to register a username and password

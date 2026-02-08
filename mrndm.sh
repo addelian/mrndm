@@ -12,6 +12,46 @@ if [[ -n "$3" ]]; then
     category=$3
 fi
 
+# If no arguments supplied, show a short usage summary and exit
+if [[ -z "$command" ]]; then
+        cat <<'USAGE'
+Usage: mrndm [command] [options*]
+
+(path/to/package/)mrndm.sh install
+    - copies the script into a PATH directory so you can run `mrndm` directly. Otherwise, you'll have to run these all with `bash mrndm.sh` or `./mrndm.sh` from the package directory.
+
+mrndm init (-i)
+    - registers a username/password (first run)
+
+mrndm "Your memo text"
+    - saves a memo (category defaults to MISC)
+
+mrndm "Buy milk" TODO
+    - saves a memo under TODO, RMND, or MISC
+
+mrndm view (-v)
+    - shows your last five memos (grouped by category)
+
+mrndm view <#>
+    - shows the memo with ID <#>
+
+mrndm view <category>
+    - shows all memos in the specified category (TODO, RMND, MISC)
+
+mrndm view all (-va)
+    - shows all memos in all categories (grouped and ordered)
+
+mrndm delete
+    - deletes your most recent memo (returns it after deletion)
+
+mrndm delete <#>
+    - deletes memo with ID <#>
+
+For full help, run: mrndm view --help
+USAGE
+        exit 0
+fi
+
 authbody=$(jq --null-input \
     --arg user "$username" \
     --arg pass "$password" \
