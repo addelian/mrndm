@@ -18,7 +18,6 @@ authbody=$(jq --null-input \
     '{username: $user, password: $pass}')
 
 # If the first arg isn't a known command, treat it as the memo body
-echo "command: $command"
 if [[ -n $command ]]; then
     case $command in
         init|auth|view|-m|install)
@@ -42,7 +41,7 @@ postbody=$(jq --null-input \
 
 retrieve_memos() {
     if [[ -n "$token" ]]; then
-        curl -H "Authorization: Token $token" $baseApiUrl/memos/
+        curl -s -H "Authorization: Token $token" $baseApiUrl/memos/ | jq -r '.results | group_by(.category) | sort_by(.[0].category) | reverse | map("| --- " + .[0].category + " --- |\n" + (sort_by(-.id) | map(.body + " (" + (.id|tostring) + ")") | join("\n"))) | join("\n\n")'
         exit 0
     fi
     authenticate
