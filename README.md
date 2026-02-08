@@ -8,6 +8,10 @@
 
 ## Usage
 
+`mrndm init`
+
+- run this the first time you use mrndm to register a username and password
+
 `mrndm -m "We should swap Christmas and Valentine's Day"`
 
 - save this memo and assign the MISC category by default
@@ -32,3 +36,7 @@
 `mrndm delete`
 
 - delete your most recent memo (returns it after deletion)
+
+`mrndm auth`
+
+- explicitly generate a new token to establish a handshake with the mrndm server. this is just a failsafe in case something goes wrong, and you shouldn't have to ever call this manually - it's automatic as a part of the above transactions.
