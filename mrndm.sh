@@ -4,6 +4,11 @@ set -e
 
 . ./mrndm.config
 
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
 command=$1
 option=$2
 category="MISC"
@@ -72,15 +77,10 @@ USAGE
         exit 0
 fi
 
-authbody=$(jq --null-input \
-    --arg user "$username" \
-    --arg pass "$password" \
-    '{username: $user, password: $pass}')
-
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-a|auth|-v|view|-va|-m|memo|-d|delete|install|-h|help)
+        -i|init|-v|view|-va|-m|memo|-d|delete|install|-h|help|-s|sync)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -113,22 +113,31 @@ retrieve_memos() {
             join("\n\n")'
         exit 0
     fi
+    echo "Token not present in .config file."
+    sleep 1
     authenticate
     retrieve_memos
 }
 
 retrieve_last_five() {
     if [[ -n "$token" ]]; then
-        curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/" | \
-        jq -r '.results | sort_by(-.id) | .[0:5] as $subset |
-            $subset as $r | ["TODO","RMND","MISC"] as $order |
-            $order | map( . as $cat | ($r | map(select(.category==$cat)) ) as $items |
-            if ($items|length)>0 then 
-                ("| --- " + $cat + " --- |\n" + 
-                ($items|sort_by(-.id)|map(.body + " (" + (.id|tostring) + ")")|join("\n"))) 
-            else empty end) | join("\n\n")'
-        exit 0
+        responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
+        results=$(echo "$responsejson" | jq -r '.results // empty')
+        if [[ "$results" ]]; then
+                echo "$responsejson" | jq -r '(.results) as $all | if ($all | length) == 0 then "No memos submitted." else ($all | sort_by(-.id) | .[0:5] as $subset |
+                $subset as $r | ["TODO","RMND","MISC"] as $order |
+                $order | map( . as $cat | ($r | map(select(.category==$cat)) ) as $items |
+                if ($items|length)>0 then 
+                    ("| --- " + $cat + " --- |\n" + 
+                    ($items|sort_by(-.id)|map(.body + " (" + (.id|tostring) + ")")|join("\n"))) 
+                else empty end) | join("\n\n")) end'
+            exit 0
+        fi
+        echo "error: $responsejson"
+        exit 1
     fi
+    echo "Token not present in .config file."
+    sleep 1
     authenticate
     retrieve_last_five
 }
@@ -147,6 +156,8 @@ retrieve_memos_by_category() {
                 join("\n"))) else ("No memos in category: " + $cat) end'
         exit 0
     fi
+    echo "Token not present in .config file."
+    sleep 1
     authenticate
     retrieve_memos_by_category "$catarg"
 }
@@ -165,6 +176,8 @@ submit() {
         jq -r '"Saved: " + .body + "\nCategory: " + .category'
         exit 0
     fi
+    echo "Token not present in .config file."
+    sleep 1
     authenticate
     submit
 }
@@ -206,6 +219,8 @@ delete() {
         echo "$memo_to_delete" | jq -r '.body + " (" + (.id|tostring) + ")"'
         exit 0
     fi
+    echo "Token not present in .config file."
+    sleep 1
     authenticate
     delete
 }
@@ -216,17 +231,39 @@ retrieve_memo() {
         jq -r '"| --- " + .category + " --- |\n" + (.body + " (" + (.id|tostring) + ")")'
         exit 0
     fi
+    echo "Token not present in .config file."
+    sleep 1
     authenticate
     retrieve_memo $1
 }
 
 authenticate() {
-    echo "token not present in .config file. attempting to generate..."
-    tokenjson=$(curl -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/auth/")
-    token=$(echo $tokenjson | jq -r '.token')
-    echo " " >> ./mrndm.config
-    echo "token=$token" >> ./mrndm.config
-    echo "token successfully generated and added to config file"
+    echo "Enter your username:"
+    read user
+    echo "Enter your password:"
+    read -s pass
+    echo
+    echo "Attempting to authenticate..."
+    retrievetoken "$user" "$pass"
+    echo -e "User ${GREEN}$user${NC} synced back up with the mrndm server."
+    sleep 1
+    echo "Config written to ./mrndm.config."
+    sleep 1
+    echo "Welcome back!"
+    exit 0
+}
+
+retrievetoken() {
+    authbody=$(jq --null-input --arg user "$1" --arg pass "$2" '{username: $user, password: $pass}')
+    tokenjson=$(curl -s -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/auth/")
+    token=$(echo "$tokenjson" | jq -r '.token')
+    if [[ -z "$token" || "$token" == "null" ]]; then
+        echo "Authentication failed. Server response:"
+        echo "$tokenjson"
+        exit 1
+    fi
+    # Overwrite config with baseApiUrl and token
+    printf "baseApiUrl=%s\ntoken=%s\n" "$baseApiUrl" "$token" > mrndm.config
 }
 
 view() {
@@ -272,16 +309,6 @@ view() {
     exit 0
 }
 
-checkauth() {
-    if [[ -n "$token" ]]; then
-        echo "'token' field already present in config."
-        echo "If it's invalid, please remove that line before re-running this command."
-        exit 0
-    fi
-    authenticate
-    exit 0
-}
-
 init() {
     echo "Creating a new user. Enter a username:"
     read newuser
@@ -294,9 +321,20 @@ init() {
     --arg pass "$newpass" \
     --arg pass2 "$newpass2" \
     '{username: $user, password: $pass, password2: $pass2}')
-    curl -X POST -H "Content-Type:application/json" -d "$registerbody" "$baseApiUrl/register/"
-    printf "baseApiUrl=$baseApiUrl\nusername=$newuser\npassword=$newpass" > mrndm.config
-    exit 0
+    responsejson=$(curl -s -X POST -H "Content-Type:application/json" -d "$registerbody" "$baseApiUrl/register/")
+    message=$(echo "$responsejson" | jq -r '.message // empty')
+    if [[ "$message" == "User registered successfully" ]]; then
+        printf "baseApiUrl=%s\n" "$baseApiUrl" > mrndm.config
+        echo "User registered successfully. Retrieving token..."
+        retrievetoken "$newuser" "$newpass"
+        sleep 1
+        echo "Token retrieved successfully and config written to ./mrndm.config."
+        sleep 1
+        echo -e "You're all set up, ${GREEN}$newuser${NC}. Enjoy mrndm."
+        exit 0
+    fi
+    echo "error: $responsejson"
+    exit 1
 }
 
 install_self() {
@@ -332,10 +370,6 @@ case $command in
         init
         ;;
 
-    -a | auth)
-        checkauth
-        ;;
-
     -v | view)
         view
         ;;
@@ -350,6 +384,10 @@ case $command in
 
     -d | delete)
         delete
+        ;;
+
+    -s | sync)
+        authenticate
         ;;
 
     install)

@@ -16,6 +16,10 @@
 
 - run this the first time you use mrndm to register a username and password
 
+`mrndm sync`
+
+- run this when you're using mrndm on a new device for the first time (will prompt for username & password)
+
 `mrndm "We should swap Christmas and Valentine's Day"`
 
 - save this memo and assign the MISC category by default
@@ -48,7 +52,3 @@
 `mrndm delete #`
 
 - delete the memo with an ID of # (IDs are assigned upon initial submission)
-
-`mrndm auth`
-
-- explicitly generate a new token to establish a handshake with the mrndm server. This is just a failsafe in case something goes wrong, and you shouldn't have to ever call this manually, as it's automatically handled as a part of the above transactions.
