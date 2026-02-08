@@ -28,14 +28,14 @@
 
 - view the memo with an ID of # (IDs are assigned upon initial submission)
 
+`mrndm view (RMND/TODO/MISC)`
+
+- view all memos you've saved in the designated category
+
 `mrndm view all (-va)`
 
 - view all of your memos 
 - i make no promises that this is a good idea
-
-`mrndm view --category (RMND/TODO/MISC)`
-
-- view all memos you've saved in the designated category
 
 `mrndm delete`
 

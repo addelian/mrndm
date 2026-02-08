@@ -57,6 +57,40 @@ retrieve_memos() {
     retrieve_memos
 }
 
+retrieve_last_five() {
+    if [[ -n "$token" ]]; then
+        curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/" | \
+        jq -r '.results | sort_by(-.id) | .[0:5] as $subset |
+            $subset as $r | ["TODO","RMND","MISC"] as $order |
+            $order | map( . as $cat | ($r | map(select(.category==$cat)) ) as $items |
+            if ($items|length)>0 then 
+                ("| --- " + $cat + " --- |\n" + 
+                ($items|sort_by(-.id)|map(.body + " (" + (.id|tostring) + ")")|join("\n"))) 
+            else empty end) | join("\n\n")'
+        exit 0
+    fi
+    authenticate
+    retrieve_last_five
+}
+
+retrieve_memos_by_category() {
+    catarg="$1"
+    if [[ -z "$catarg" ]]; then
+        catarg="$category"
+    fi
+    if [[ -n "$token" ]]; then
+        curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/" | \
+        jq -r --arg cat "$catarg" '.results | map(select(.category==$cat)) |
+            sort_by(-.id) | 
+            if (.|length)>0 then 
+                ("| --- " + .[0].category + " --- |\n" + (map(.body + " (" + (.id|tostring) + ")") |
+                join("\n"))) else ("No memos in category: " + $cat) end'
+        exit 0
+    fi
+    authenticate
+    retrieve_memos_by_category "$catarg"
+}
+
 submit() {
     if [[ $category != "MISC" && $category != "RMND" && $category != "TODO" ]]; then
         echo "Invalid category choice."
@@ -87,11 +121,12 @@ delete() {
 
 retrieve_memo() {
     if [[ -n "$token" ]]; then
-        curl -H "Authorization: Token $token" $baseApiUrl/memos/$1/
+        curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$1/" | \
+        jq -r '"| --- " + .category + " --- |\n" + (.body + " (" + (.id|tostring) + ")")'
         exit 0
     fi
     authenticate
-    retrieve_memo
+    retrieve_memo $1
 }
 
 authenticate() {
@@ -104,17 +139,45 @@ authenticate() {
 }
 
 view() {
+    # No option -> show last five memos
+    if [[ -z "$option" ]]; then
+        retrieve_last_five
+        exit 0
+    fi
+
+    # Numeric option -> single memo by ID
     if [[ $option =~ ^[0-9]+$ ]]; then
         retrieve_memo $option
         exit 0
     fi
-    if [[ $option = "all" || $option = "-a" ]]; then
+
+    # Direct category (e.g. mrndm view TODO)
+    if [[ $option = "TODO" || $option = "RMND" || $option = "MISC" ]]; then
+        retrieve_memos_by_category "$option"
+        exit 0
+    fi
+
+    # All memos
+    if [[ $option = "all" || $option = "-va" || $option = "--all" || $option = "-a" ]]; then
         retrieve_memos
         exit 0
     fi
+
+    # Category filter: mrndm view --category TODO (fallback)
+    if [[ $option = "--category" || $option = "-c" ]]; then
+        if [[ -n "$category" ]]; then
+            retrieve_memos_by_category "$category"
+            exit 0
+        fi
+        echo "USAGE: mrndm view --category <RMND|TODO|MISC>"
+        exit 1
+    fi
+
     echo "USAGE:"
+    echo "view (-v): show your last five memos"
     echo "view <#>: return a single memo with the provided ID number"
-    echo "view -a / --all: view all written memos"
+    echo "view all (-va): view all written memos"
+    echo "view --category <RMND|TODO|MISC> or view <RMND|TODO|MISC>: view memos in the designated category"
     exit 0
 }
 
