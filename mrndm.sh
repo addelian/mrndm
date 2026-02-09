@@ -2,8 +2,6 @@
 
 set -e
 
-. ./mrndm.config
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -13,48 +11,59 @@ command=$1
 option=$2
 category="MISC"
 
+config="$HOME/.config/mrndm.conf"
+
+if [[ -f "$config" ]]; then
+    source "$config"
+fi
+
 if [[ -n "$3" ]]; then
     category=$3
 fi
 
 show_full_help() {
         cat <<'FULL'
-Usage: mrndm [command] [options*]
+USAGE
+    mrndm <command> <subcommand>
 
-(path/to/package/)mrndm.sh install
-    - Copies the script into a PATH directory so you can run `mrndm` directly.
-      Otherwise, you'll need to run all the below commands with `./mrndm.sh` instead of `mrndm`
+SETUP COMMANDS
+    init (-i):              Installs mrndm on your PATH and creates a config file. Run this before you do anything else.
+    register (-r):          Registers a username and password and uses them to retrieve a token.
+    sync (-sc):             Generates a token for an existing user and saves it to the config file.
 
-mrndm init (-i)
-    - Registers a username and password and saves them to the config file. Only needs to be done once.
+MEMO-WRITING COMMANDS
+    "Memo text":            Saves a memo (defaults to MISC)
+    "Memo text" <category>: Saves a memo under the specified category
+    delete (-d):            Deletes your most recent memo (returns it after deletion)
+    delete <#>:             Deletes the memo with ID <#>
 
-mrndm "Your memo text"
-    - Saves a memo (defaults to MISC)
+MEMO-RETRIEVING COMMANDS
+    view (-v):              Shows your last five memos (grouped by category)
+    view <#>:               Shows the memo with ID <#>
+    view <category>:        Shows all memos in the designated category
+    view all (-va):         Shows all memos (Grouped by category, sorted newest to oldest)
 
-mrndm "Buy milk" TODO
-    - Saves a memo under TODO, RMND, or MISC
+CATEGORIES
+    MISC (default)
+    RMND
+    TODO
+    IDEA
+    WORK
+    TECH
+    HOME
+    QUOT
+    EARS
+    EYES
+    FOOD
+    DRNK
 
-mrndm view (-v)
-    - Shows your last five memos (grouped by category)
-
-mrndm view <#>
-    - Shows the memo with ID <#>
-
-mrndm view (RMND/TODO/MISC)
-    - Shows all memos in the designated category
-
-mrndm view all (-va)
-    - Shows all memos (Grouped by category, sorted newest to oldest)
-
-mrndm delete
-    - Deletes your most recent memo (returns it after deletion)
-    
-mrndm delete <#>
-    - Deletes the memo with ID <#>
-
-mrndm auth
-    - Explicitly generates a new token.
-      Only needed if you need to refresh an expired token, or if the token field is missing from the config file
+EXAMPLES
+    mrndm "So it goes"
+    mrndm view
+    mrndm "We're out of coffee" RMND
+    mrndm view TODO
+    mrndm delete
+    mrndm delete 3
 FULL
 }
 
@@ -80,7 +89,7 @@ fi
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-v|view|-va|-m|memo|-d|delete|install|-h|help|-s|sync)
+        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -113,7 +122,7 @@ retrieve_memos() {
             join("\n\n")'
         exit 0
     fi
-    echo "Token not present in .config file."
+    echo "Token not present in config file."
     sleep 1
     authenticate
     retrieve_memos
@@ -136,7 +145,7 @@ retrieve_last_five() {
         echo "error: $responsejson"
         exit 1
     fi
-    echo "Token not present in .config file."
+    echo "Token not present in config file."
     sleep 1
     authenticate
     retrieve_last_five
@@ -156,7 +165,7 @@ retrieve_memos_by_category() {
                 join("\n"))) else ("No memos in category: " + $cat) end'
         exit 0
     fi
-    echo "Token not present in .config file."
+    echo "Token not present in config file."
     sleep 1
     authenticate
     retrieve_memos_by_category "$catarg"
@@ -176,7 +185,7 @@ submit() {
         jq -r '"Saved: " + .body + "\nCategory: " + .category'
         exit 0
     fi
-    echo "Token not present in .config file."
+    echo "Token not present in config file."
     sleep 1
     authenticate
     submit
@@ -219,7 +228,7 @@ delete() {
         echo "$memo_to_delete" | jq -r '.body + " (" + (.id|tostring) + ")"'
         exit 0
     fi
-    echo "Token not present in .config file."
+    echo "Token not present in config file."
     sleep 1
     authenticate
     delete
@@ -231,7 +240,7 @@ retrieve_memo() {
         jq -r '"| --- " + .category + " --- |\n" + (.body + " (" + (.id|tostring) + ")")'
         exit 0
     fi
-    echo "Token not present in .config file."
+    echo "Token not present in config file."
     sleep 1
     authenticate
     retrieve_memo $1
@@ -247,7 +256,7 @@ authenticate() {
     retrievetoken "$user" "$pass"
     echo -e "User ${GREEN}$user${NC} synced back up with the mrndm server."
     sleep 1
-    echo "Config written to ./mrndm.config."
+    echo "Config written to $config."
     sleep 1
     echo "Welcome back!"
     exit 0
@@ -263,7 +272,7 @@ retrievetoken() {
         exit 1
     fi
     # Overwrite config with baseApiUrl and token
-    printf "baseApiUrl=%s\ntoken=%s\n" "$baseApiUrl" "$token" > mrndm.config
+    printf "baseApiUrl=%s\ntoken=%s\n" "$baseApiUrl" "$token" > $config
 }
 
 view() {
@@ -309,7 +318,7 @@ view() {
     exit 0
 }
 
-init() {
+register() {
     echo "Creating a new user. Enter a username:"
     read newuser
     echo "Enter a password:"
@@ -324,11 +333,11 @@ init() {
     responsejson=$(curl -s -X POST -H "Content-Type:application/json" -d "$registerbody" "$baseApiUrl/register/")
     message=$(echo "$responsejson" | jq -r '.message // empty')
     if [[ "$message" == "User registered successfully" ]]; then
-        printf "baseApiUrl=%s\n" "$baseApiUrl" > mrndm.config
+        printf "baseApiUrl=%s\n" "$baseApiUrl" > $config
         echo "User registered successfully. Retrieving token..."
         retrievetoken "$newuser" "$newpass"
         sleep 1
-        echo "Token retrieved successfully and config written to ./mrndm.config."
+        echo "Token retrieved successfully and config written to $config."
         sleep 1
         echo -e "You're all set up, ${GREEN}$newuser${NC}. Enjoy mrndm."
         exit 0
@@ -337,28 +346,36 @@ init() {
     exit 1
 }
 
-install_self() {
-    target_dirs=("$HOME/.local/bin" "$HOME/bin" "/usr/local/bin")
-    for dir in "${target_dirs[@]}"; do
-        if [[ -d "$dir" ]] || mkdir -p "$dir" 2>/dev/null; then
-            dest="$dir/mrndm"
-            if cp "$0" "$dest" 2>/dev/null; then
-                chmod +x "$dest"
-                echo "Installed to $dest"
-                echo "Ensure $dir is on your PATH (add to ~/.profile or ~/.bashrc if needed)."
-                exit 0
+init() {
+    read -p "Choose where you want to install mrndm [default: $HOME/.local/bin]: " installdir
+    installdir=${installdir:-"$HOME/.local/bin"}
+    if [[ -d "$installdir" ]] || mkdir -p "$installdir" 2>/dev/null; then
+        dest="$installdir/mrndm"
+        if cp "$0" "$dest" 2>/dev/null; then
+            chmod +x "$dest"
+            echo "Checking config file..."
+            if [[ -f "$config" ]]; then
+                echo "Config file already exists. Config initialization not needed."
             else
-                if [[ "$dir" = "/usr/local/bin" ]]; then
-                    echo "Permission needed to copy to $dir; attempting with sudo..."
-                    if sudo cp "$0" "$dest" 2>/dev/null; then
-                        sudo chmod +x "$dest"
-                        echo "Installed to $dest (with sudo)"
-                        exit 0
-                    fi
+                echo "No config file detected."
+                read -p "Are you running mrndm in dev mode or user mode? (dev/user) [default: user]: " devmode
+                devmode=${devmode:-"user"}
+                if [[ "$devmode" == "dev" ]]; then
+                    echo "Initializing config with a local URL. Run 'mrndm register' to register, or 'mrndm sync' if you already have an account."
+                    printf "baseApiUrl=127.0.0.1:8000" > $config
+                elif [[ "$devmode" == "user" ]]; then
+                    echo "Initializing config with the default server URL. Run 'mrndm register' to register, or 'mrndm sync' if you already have an account."
+                    printf "baseApiUrl=https://our.plots.club" > $config
+                else
+                    echo "Invalid choice. Exiting installation."
+                    exit 1
                 fi
             fi
+            echo "Installed to $dest"
+            echo "Ensure $installdir is on your PATH (add to ~/.profile or ~/.bashrc if needed)."
+            exit 0
         fi
-    done
+    fi
     echo "Failed to install."
     echo "Copy the script to a directory on your PATH, e.g. $HOME/.local/bin or /usr/local/bin"
     exit 1
@@ -366,8 +383,8 @@ install_self() {
 
 case $command in
 
-    -i | init) 
-        init
+    -r | register) 
+        register
         ;;
 
     -v | view)
@@ -390,8 +407,8 @@ case $command in
         authenticate
         ;;
 
-    install)
-        install_self
+    -i | init)
+        init
         ;;
 
     -h | help)

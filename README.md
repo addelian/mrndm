@@ -8,17 +8,17 @@
 
 ## Usage
 
-`(path/to/package/)mrndm.sh install`
+`(path/to/package/)mrndm.sh init (-i)`
 
-- installs the script into a PATH directory so you can invoke `mrndm` directly
+- Installs mrndm on your PATH and creates a config file. Run this before you do anything else.
 
-`mrndm init (-i)`
+`mrndm register (-r)`
 
-- run this the first time you use mrndm to register a username and password
+- Registers a username and password and uses them to retrieve a token, which is saved to the config file.
 
 `mrndm sync`
 
-- run this when you're using mrndm on a new device for the first time (will prompt for username & password)
+- Run this when you're using mrndm on a new device for the first time or to regenerate a stale token (will prompt for username & password)
 
 `mrndm "We should swap Christmas and Valentine's Day"`
 
@@ -52,3 +52,7 @@
 `mrndm delete #`
 
 - delete the memo with an ID of # (IDs are assigned upon initial submission)
+
+`mrndm help (-h)`
+
+- view the full help screen (which looks suspiciously like this README)
