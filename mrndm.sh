@@ -110,11 +110,14 @@ postbody=$(jq --null-input \
 
 retrieve_memos() {
     if [[ -n "$token" ]]; then
-        curl -s -H "Authorization: Token $token" $baseApiUrl/memos/ | \
-        jq -r '.results | 
+        responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
+        results_count=$(echo "$responsejson" | jq -r '.results | length')
+        if [[ "$results_count" -eq 0 ]]; then
+            echo "No memos submitted."
+            exit 0
+        fi
+        echo "$responsejson" | jq -r '.results | 
             group_by(.category) | 
-            sort_by(.[0].category) | 
-            reverse | 
             map("| --- " + .[0].category + " --- |\n" + 
                 (sort_by(-.id) | 
                  map(.body + " (" + (.id|tostring) + ")") | 
@@ -133,13 +136,7 @@ retrieve_last_five() {
         responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
         results=$(echo "$responsejson" | jq -r '.results // empty')
         if [[ "$results" ]]; then
-                echo "$responsejson" | jq -r '(.results) as $all | if ($all | length) == 0 then "No memos submitted." else ($all | sort_by(-.id) | .[0:5] as $subset |
-                $subset as $r | ["TODO","RMND","MISC"] as $order |
-                $order | map( . as $cat | ($r | map(select(.category==$cat)) ) as $items |
-                if ($items|length)>0 then 
-                    ("| --- " + $cat + " --- |\n" + 
-                    ($items|sort_by(-.id)|map(.body + " (" + (.id|tostring) + ")")|join("\n"))) 
-                else empty end) | join("\n\n")) end'
+                echo "$responsejson" | jq -r '(.results) as $all | if ($all | length) == 0 then "No memos submitted." else ($all | sort_by(-.id) | .[0:5] | group_by(.category) | map("| --- " + .[0].category + " --- |\n" + (sort_by(-.id)|map(.body + " (" + (.id|tostring) + ")")|join("\n"))) | join("\n\n")) end'
             exit 0
         fi
         echo "error: $responsejson"
@@ -157,8 +154,13 @@ retrieve_memos_by_category() {
         catarg="$category"
     fi
     if [[ -n "$token" ]]; then
-        curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/" | \
-        jq -r --arg cat "$catarg" '.results | map(select(.category==$cat)) |
+        responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
+        results_count=$(echo "$responsejson" | jq -r '.results | length')
+        if [[ "$results_count" -eq 0 ]]; then
+            echo "No memos submitted."
+            exit 0
+        fi
+        echo "$responsejson" | jq -r --arg cat "$catarg" '.results | map(select(.category==$cat)) |
             sort_by(-.id) | 
             if (.|length)>0 then 
                 ("| --- " + .[0].category + " --- |\n" + (map(.body + " (" + (.id|tostring) + ")") |
@@ -172,17 +174,17 @@ retrieve_memos_by_category() {
 }
 
 submit() {
-    if [[ $category != "MISC" && $category != "RMND" && $category != "TODO" ]]; then
-        echo "Invalid category choice."
-        echo "Options are MISC, RMND, or TODO (defaults to MISC if excluded)"
-        exit 0
-    fi
     if [[ -n "$token" ]]; then
-        curl -s -X POST \
+        responsejson=$(curl -s -X POST \
         -H "Authorization: Token $token" \
         -H "Content-Type:application/json" \
-        -d "$postbody" $baseApiUrl/memos/ | \
-        jq -r '"Saved: " + .body + "\nCategory: " + .category'
+        -d "$postbody" $baseApiUrl/memos/)
+        responsebody=$(echo "$responsejson" | jq -r '.body // empty')
+        if [[ -z "$responsebody" ]]; then
+            echo "error: $responsejson"
+            exit 1
+        fi
+        echo "$responsejson" | jq -r '"Saved: " + .body + "\nCategory: " + .category'
         exit 0
     fi
     echo "Token not present in config file."
@@ -236,8 +238,13 @@ delete() {
 
 retrieve_memo() {
     if [[ -n "$token" ]]; then
-        curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$1/" | \
-        jq -r '"| --- " + .category + " --- |\n" + (.body + " (" + (.id|tostring) + ")")'
+        responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$1/")
+        responsebody=$(echo "$responsejson" | jq -r '.body // empty')
+        if [[ -z "$responsebody" ]]; then
+            echo "Memo not found with ID $1"
+            exit 0
+        fi
+        echo "$responsejson" | jq -r '"| --- " + .category + " --- |\n" + (.body + " (" + (.id|tostring) + ")")'
         exit 0
     fi
     echo "Token not present in config file."
@@ -253,7 +260,7 @@ authenticate() {
     read -s pass
     echo
     echo "Attempting to authenticate..."
-    retrievetoken "$user" "$pass"
+    retrieve_token "$user" "$pass"
     echo -e "User ${GREEN}$user${NC} synced back up with the mrndm server."
     sleep 1
     echo "Config written to $config."
@@ -262,9 +269,10 @@ authenticate() {
     exit 0
 }
 
-retrievetoken() {
+retrieve_token() {
     authbody=$(jq --null-input --arg user "$1" --arg pass "$2" '{username: $user, password: $pass}')
-    tokenjson=$(curl -s -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/auth/")
+    echo "authbody: $authbody"
+    tokenjson=$(curl -s -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/login/")
     token=$(echo "$tokenjson" | jq -r '.token')
     if [[ -z "$token" || "$token" == "null" ]]; then
         echo "Authentication failed. Server response:"
@@ -289,7 +297,11 @@ view() {
     fi
 
     # Direct category (e.g. mrndm view TODO)
-    if [[ $option = "TODO" || $option = "RMND" || $option = "MISC" ]]; then
+    if [[ $option = "TODO" || $option = "RMND" || $option = "MISC" ||
+        $option = "IDEA" || $option = "WORK" || $option = "TECH" || 
+        $option = "HOME" || $option = "QUOT" || $option = "EARS" || 
+        $option = "EYES" || $option = "FOOD" || $option = "DRNK"
+    ]]; then
         retrieve_memos_by_category "$option"
         exit 0
     fi
@@ -300,21 +312,11 @@ view() {
         exit 0
     fi
 
-    # Category filter: mrndm view --category TODO (fallback)
-    if [[ $option = "--category" || $option = "-c" ]]; then
-        if [[ -n "$category" ]]; then
-            retrieve_memos_by_category "$category"
-            exit 0
-        fi
-        echo "USAGE: mrndm view --category <RMND|TODO|MISC>"
-        exit 1
-    fi
-
     echo "USAGE:"
     echo "view (-v): show your last five memos"
     echo "view <#>: return a single memo with the provided ID number"
     echo "view all (-va): view all written memos"
-    echo "view --category <RMND|TODO|MISC> or view <RMND|TODO|MISC>: view memos in the designated category"
+    echo "view <category>: view memos in the designated category"
     exit 0
 }
 
@@ -335,7 +337,7 @@ register() {
     if [[ "$message" == "User registered successfully" ]]; then
         printf "baseApiUrl=%s\n" "$baseApiUrl" > $config
         echo "User registered successfully. Retrieving token..."
-        retrievetoken "$newuser" "$newpass"
+        retrieve_token "$newuser" "$newpass"
         sleep 1
         echo "Token retrieved successfully and config written to $config."
         sleep 1
@@ -362,7 +364,7 @@ init() {
                 devmode=${devmode:-"user"}
                 if [[ "$devmode" == "dev" ]]; then
                     echo "Initializing config with a local URL. Run 'mrndm register' to register, or 'mrndm sync' if you already have an account."
-                    printf "baseApiUrl=127.0.0.1:8000" > $config
+                    printf "baseApiUrl=http://127.0.0.1:8000" > $config
                 elif [[ "$devmode" == "user" ]]; then
                     echo "Initializing config with the default server URL. Run 'mrndm register' to register, or 'mrndm sync' if you already have an account."
                     printf "baseApiUrl=https://our.plots.club" > $config
