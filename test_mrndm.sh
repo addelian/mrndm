@@ -124,13 +124,13 @@ test_case "No arguments shows quick help"
 output=$(run_test bash /home/nic/workspace/github.com/addelian/mrndm/mrndm.sh 2>&1 || true)
 assert_contains "$output" "mrndm help (mrndm -h)" "No-arg output should contain reference to help flag"
 
-test_case "Help flag shows full helpl"
+test_case "Help flag shows full help"
 output=$(run_test bash /home/nic/workspace/github.com/addelian/mrndm/mrndm.sh -h 2>&1 || true)
-assert_contains "$output" "mrndm.sh install" "Help output should contain install command"
+assert_contains "$output" "init (-i)" "Help output should contain init command"
 
 test_case "help command shows full help"
 output=$(run_test bash /home/nic/workspace/github.com/addelian/mrndm/mrndm.sh help 2>&1 || true)
-assert_contains "$output" "mrndm.sh install" "help command should show install command"
+assert_contains "$output" "init (-i)" "help command should show init command"
 
 # ============== FORMATTING TESTS ==============
 
@@ -142,26 +142,6 @@ assert_contains "$result" "test memo (5)" "Should format memo with ID"
 test_case "Category grouping works correctly"
 result=$(echo '[{"id":3,"body":"todo item","category":"TODO"},{"id":2,"body":"misc item","category":"MISC"}]' | jq -r 'group_by(.category) | sort_by(.[0].category) | reverse | .[0][0].category')
 assert_equal "TODO" "$result" "Categories should be sorted reverse alphabetically"
-
-# ============== LOGIC TESTS ==============
-
-test_case "Valid categories recognized"
-# Test that category validation works by checking the case statement
-for cat in MISC RMND TODO; do
-    result="pass"
-    if [[ $cat != "MISC" && $cat != "RMND" && $cat != "TODO" ]]; then
-        result="fail"
-    fi
-    assert_equal "pass" "$result" "Category $cat should be valid"
-done
-
-test_case "Invalid category rejected"
-result="pass"
-category="INVALID"
-if [[ $category != "MISC" && $category != "RMND" && $category != "TODO" ]]; then
-    result="fail"
-fi
-assert_equal "fail" "$result" "Category INVALID should be invalid"
 
 # ============== JSON PARSING TESTS ==============
 
