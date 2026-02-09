@@ -29,7 +29,8 @@ USAGE
 SETUP COMMANDS
     init (-i):              Installs mrndm on your PATH and creates a config file. Run this before you do anything else.
     register (-r):          Registers a username and password and uses them to retrieve a token.
-    sync (-sc):             Generates a token for an existing user and saves it to the config file.
+    sync (-sc):             Generates a token for an existing user and saves it to the config file. (Alias: login)
+    logout (-l):            Deletes the token from the config file and logs out of the current session.
 
 MEMO-WRITING COMMANDS
     "Memo text":            Saves a memo (defaults to MISC)
@@ -81,6 +82,9 @@ mrndm view
 mrndm delete
     - Deletes your most recent memo (or use an ID: mrndm delete <#>)
 
+(path/to/here)/mrndm.sh init
+    - Do this if nothing else is working
+
 Run `mrndm help (mrndm -h)` for full usage information.
 USAGE
         exit 0
@@ -89,7 +93,7 @@ fi
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync)
+        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -191,6 +195,29 @@ submit() {
     sleep 1
     authenticate
     submit
+}
+
+logout() {
+    if [[ -n "$token" ]]; then
+        responsejson=$(curl --write-out "%{http_code}\n" --output /dev/null -s -X POST \
+        -H "Authorization: Token $token" \
+        -H "Content-Type:application/json" \
+        -d "" $baseApiUrl/logout/)
+        if [[ "$responsejson" -ne 204 ]]; then
+            echo "Logout failed. Server response code: $responsejson"
+            exit 1
+        fi
+        echo "Logged out."
+        printf "baseApiUrl=%s\n" "$baseApiUrl" > $config
+        exit 0
+    fi
+    echo "No token in the config file."
+    sleep 1
+    echo "Options:"
+    echo "    mrndm sync - you meant to login, not logout"
+    echo "    mrndm register - you don't have an account yet"
+    echo "    mrndm logout all - you want to logout of all sessions everywhere"
+    exit 1
 }
 
 delete() {
@@ -404,8 +431,12 @@ case $command in
         delete
         ;;
 
-    -s | sync)
+    -s | sync | login)
         authenticate
+        ;;
+
+    -l | logout)
+        logout
         ;;
 
     -i | init)

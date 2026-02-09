@@ -16,9 +16,13 @@
 
 - Registers a username and password and uses them to retrieve a token, which is saved to the config file.
 
-`mrndm sync`
+`mrndm sync` (alias: `mrndm login`)
 
 - Run this when you're using mrndm on a new device for the first time or to regenerate a stale token (will prompt for username & password)
+
+`mrndm logout (-l)`
+
+- Log out of your current mrndm session and removes your session token from the config file
 
 `mrndm "We should swap Christmas and Valentine's Day"`
 
