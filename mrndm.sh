@@ -271,7 +271,6 @@ authenticate() {
 
 retrieve_token() {
     authbody=$(jq --null-input --arg user "$1" --arg pass "$2" '{username: $user, password: $pass}')
-    echo "authbody: $authbody"
     tokenjson=$(curl -s -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/login/")
     token=$(echo "$tokenjson" | jq -r '.token')
     if [[ -z "$token" || "$token" == "null" ]]; then
