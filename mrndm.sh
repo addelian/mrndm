@@ -306,7 +306,8 @@ retrieve_token() {
         exit 1
     fi
     # Overwrite config with baseApiUrl and token
-    printf "baseApiUrl=%s\ntoken=%s\n" "$baseApiUrl" "$token" > $config
+    expiry_time=$(date -d "+90 days" +"%Y-%m-%d %H:%M:%S")
+    printf "baseApiUrl=%s\ntoken=%s\ntoken_expiry=\"%s\"\n" "$baseApiUrl" "$token" "$expiry_time" > $config
 }
 
 view() {
