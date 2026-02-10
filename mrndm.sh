@@ -93,7 +93,7 @@ fi
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout)
+        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -347,17 +347,20 @@ view() {
 }
 
 register() {
-    echo "Creating a new user. Enter a username:"
-    read newuser
-    echo "Enter a password:"
-    read -s newpass
-    echo "Re-enter your password:"
-    read -s newpass2
+    read -p "Enter a username: " newuser
+    read -s -p "Enter a password: " newpass
+    echo ""
+    # read -s newpass
+    read -s -p "Re-enter your password: " newpass2
+    # read -s newpass2
+    echo ""
+    read -p "Enter your email (optional, for password recovery): " newemail
     registerbody=$(jq --null-input \
     --arg user "$newuser" \
     --arg pass "$newpass" \
     --arg pass2 "$newpass2" \
-    '{username: $user, password: $pass, password2: $pass2}')
+    --arg email "$newemail" \
+    '{username: $user, password: $pass, password2: $pass2, email: $email}')
     responsejson=$(curl -s -X POST -H "Content-Type:application/json" -d "$registerbody" "$baseApiUrl/register/")
     message=$(echo "$responsejson" | jq -r '.message // empty')
     if [[ "$message" == "User registered successfully" ]]; then
@@ -409,6 +412,19 @@ init() {
     exit 1
 }
 
+reset_password() {
+    read -p "Password recovery - enter your email: " email
+    resetbody=$(jq --null-input --arg email "$email" '{email: $email}')
+    responsejson=$(curl -s -X POST -H "Content-Type:application/json" -d "$resetbody" "$baseApiUrl/auth/password-reset/")
+    message=$(echo "$responsejson" | jq -r '.message // empty')
+    if [[ "$message" == "Password reset instructions sent if the email exists." ]]; then
+        echo "$message Check your inbox (and your spam folder) and follow the instructions to reset your password."
+        exit 0
+    fi
+    echo "error: $responsejson"
+    exit 1
+}
+
 case $command in
 
     -r | register) 
@@ -446,6 +462,10 @@ case $command in
     -h | help)
         show_full_help
         exit 0
+        ;;
+
+    -fp | password)
+        reset_password
         ;;
 
 esac
