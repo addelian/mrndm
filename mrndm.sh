@@ -26,11 +26,13 @@ show_full_help() {
 USAGE
     mrndm <command> <subcommand>
 
-SETUP COMMANDS
+ACCOUNT COMMANDS
     init (-i):                Installs mrndm on your PATH and creates a config file. Run this before you do anything else.
     register (-r):            Registers a username and password and uses them to retrieve a token.
     sync (-sc):               Generates a token for an existing user and saves it to the config file. (Alias: login)
     logout (-l):              Deletes the token from the config file and logs out of the current session.
+    delete-account (-da):     Deletes your account and all associated memos.
+
 
 MEMO-WRITING COMMANDS
     "Memo text":              Saves a memo (defaults to MISC)
@@ -94,7 +96,7 @@ fi
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password|-mv|mv|move|-ls|ls|viewamt)
+        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password|-mv|mv|move|-ls|ls|viewamt|deleteaccount)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -270,6 +272,32 @@ delete() {
     delete
 }
 
+delete_account() {
+    if [[ -n "$token" ]]; then
+        read -p "Are you sure you want to delete your account? This action cannot be undone and all of your memos will be erased. (y/N) " confirm
+        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+            echo "Account deletion cancelled."
+            exit 0
+        fi
+        responsejson=$(curl --write-out "%{http_code}\n" --output /dev/null -s -X POST \
+        -H "Authorization: Token $token" \
+        -H "Content-Type:application/json" \
+        -d "" $baseApiUrl/delete-account/)
+        if [[ "$responsejson" -ne 204 ]]; then
+            echo "Account deletion failed. Server response code: $responsejson"
+            exit 1
+        fi
+        echo "Account deleted. Thanks for trying mrndm!"
+        rm $config
+        exit 0
+    fi
+    echo "No token in the config file."
+    sleep 1
+    echo "Options:"
+    echo "    mrndm login - you need to login and retrieve a token before you can delete your account"
+    echo "    mrndm logout all - you want to logout of all sessions everywhere (need to be logged in first)"
+    exit 1
+}
 retrieve_memo() {
     if [[ -n "$token" ]]; then
         responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$1/")
@@ -304,6 +332,10 @@ authenticate() {
 }
 
 retrieve_token() {
+    if [[ -z $baseApiUrl ]]; then
+        echo "Error retrieving configuration information. Have you run (path/to/here)/mrndm.sh init yet?"
+        exit 1
+    fi
     authbody=$(jq --null-input --arg user "$1" --arg pass "$2" '{username: $user, password: $pass}')
     tokenjson=$(curl -s -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/login/")
     token=$(echo "$tokenjson" | jq -r '.token')
@@ -515,6 +547,10 @@ case $command in
 
     -ls | ls | viewamt)
         retrieve_given_amount
+        ;;
+
+    deleteaccount)
+        delete_account
         ;;
 
 esac
