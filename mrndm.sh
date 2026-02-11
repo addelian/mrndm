@@ -31,8 +31,10 @@ ACCOUNT COMMANDS
     register (-r):            Registers a username and password and uses them to retrieve a token.
     sync (-sc):               Generates a token for an existing user and saves it to the config file. (Alias: login)
     logout (-l):              Deletes the token from the config file and logs out of the current session.
-    delete-account (-da):     Deletes your account and all associated memos.
-
+    password (-fp):           Initiates the password reset process (sends an email with instructions)
+    user (me):                Shows information about your account (username, email if present)
+    changeemail               Changes the email associated with your account (used for password recovery)
+    deleteaccount (-da):      Deletes your account and all associated memos.
 
 MEMO-WRITING COMMANDS
     "Memo text":              Saves a memo (defaults to MISC)
@@ -96,7 +98,7 @@ fi
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password|-mv|mv|move|-ls|ls|viewamt|deleteaccount)
+        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password|-mv|mv|move|-ls|ls|viewamt|deleteaccount|changeemail|me|self|user)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -205,7 +207,7 @@ logout() {
         responsejson=$(curl --write-out "%{http_code}\n" --output /dev/null -s -X POST \
         -H "Authorization: Token $token" \
         -H "Content-Type:application/json" \
-        -d "" $baseApiUrl/logout/)
+        -d "" $baseApiUrl/auth/logout/)
         if [[ "$responsejson" -ne 204 ]]; then
             echo "Logout failed. Server response code: $responsejson"
             exit 1
@@ -279,10 +281,10 @@ delete_account() {
             echo "Account deletion cancelled."
             exit 0
         fi
-        responsejson=$(curl --write-out "%{http_code}\n" --output /dev/null -s -X POST \
+        responsejson=$(curl --write-out "%{http_code}\n" --output /dev/null -s -X DELETE \
         -H "Authorization: Token $token" \
         -H "Content-Type:application/json" \
-        -d "" $baseApiUrl/delete-account/)
+        -d "" $baseApiUrl/users/me/)
         if [[ "$responsejson" -ne 204 ]]; then
             echo "Account deletion failed. Server response code: $responsejson"
             exit 1
@@ -333,11 +335,11 @@ authenticate() {
 
 retrieve_token() {
     if [[ -z $baseApiUrl ]]; then
-        echo "Error retrieving configuration information. Have you run (path/to/here)/mrndm.sh init yet?"
+        echo "Error retrieving configuration information. Have you run '(path/to/here)/mrndm.sh init' yet?"
         exit 1
     fi
     authbody=$(jq --null-input --arg user "$1" --arg pass "$2" '{username: $user, password: $pass}')
-    tokenjson=$(curl -s -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/login/")
+    tokenjson=$(curl -s -X POST -H "Content-Type:application/json" -d "$authbody" "$baseApiUrl/auth/login/")
     token=$(echo "$tokenjson" | jq -r '.token')
     if [[ -z "$token" || "$token" == "null" ]]; then
         echo "Authentication failed. Server response:"
@@ -379,6 +381,29 @@ change_category() {
     sleep 1
     authenticate
     change_category
+}
+
+change_email() {
+    if [[ -n "$token" ]]; then
+        read -p "Enter the email address you wish to associate with your account: " newemail
+        updatebody=$(jq --null-input --arg email "$newemail" '{email: $email}')
+        responsejson=$(curl -s -X PATCH \
+        -H "Authorization: Token $token" \
+        -H "Content-Type:application/json" \
+        -d "$updatebody" "$baseApiUrl/users/me/")
+        responsemessage=$(echo "$responsejson" | jq -r '.message // empty')
+        if [[ -z $responsemessage ]]; then
+            echo "Failed to update email. Server response:"
+            echo "$responsejson"
+            exit 1
+        fi
+        echo "$responsemessage"
+        exit 0
+    fi
+    echo "Token not present in config file."
+    sleep 1
+    authenticate
+    change_email
 }
 
 view() {
@@ -434,7 +459,7 @@ register() {
     --arg pass2 "$newpass2" \
     --arg email "$newemail" \
     '{username: $user, password: $pass, password2: $pass2, email: $email}')
-    responsejson=$(curl -s -X POST -H "Content-Type:application/json" -d "$registerbody" "$baseApiUrl/register/")
+    responsejson=$(curl -s -X POST -H "Content-Type:application/json" -d "$registerbody" "$baseApiUrl/auth/register/")
     message=$(echo "$responsejson" | jq -r '.message // empty')
     if [[ "$message" == "User registered successfully" ]]; then
         printf "baseApiUrl=%s\n" "$baseApiUrl" > $config
@@ -466,10 +491,10 @@ init() {
                 devmode=${devmode:-"user"}
                 if [[ "$devmode" == "dev" ]]; then
                     echo "Initializing config with a local URL. Run 'mrndm register' to register, or 'mrndm sync' if you already have an account."
-                    printf "baseApiUrl=http://127.0.0.1:8000" > $config
+                    printf "baseApiUrl=http://127.0.0.1:8000/api/v1" > $config
                 elif [[ "$devmode" == "user" ]]; then
                     echo "Initializing config with the default server URL. Run 'mrndm register' to register, or 'mrndm sync' if you already have an account."
-                    printf "baseApiUrl=https://our.plots.club" > $config
+                    printf "baseApiUrl=https://our.plots.club/api/v1" > $config
                 else
                     echo "Invalid choice. Exiting installation."
                     exit 1
@@ -490,12 +515,31 @@ reset_password() {
     resetbody=$(jq --null-input --arg email "$email" '{email: $email}')
     responsejson=$(curl -s -X POST -H "Content-Type:application/json" -d "$resetbody" "$baseApiUrl/auth/password-reset/")
     message=$(echo "$responsejson" | jq -r '.message // empty')
-    if [[ "$message" == "Password reset instructions sent if the email exists." ]]; then
-        echo "$message Check your inbox (and your spam folder) and follow the instructions to reset your password."
+    if [[ "$message" ]]; then
+        echo "$message"
         exit 0
+    else
+        message=$(echo "$responsejson" | jq -r '.error // empty')
     fi
-    echo "error: $responsejson"
-    exit 1
+    echo "$message"
+    exit 0
+}
+
+get_user_info() {
+    if [[ -n "$token" ]]; then
+        responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/users/me/")
+        message=$(echo "$responsejson" | jq -r '.message // empty')
+        if [[ -n "$message" ]]; then
+            echo "$message"
+            exit 0
+        fi
+        echo "error: $responsejson"
+        exit 1
+    fi
+    echo "Token not present in config file."
+    sleep 1
+    authenticate
+    get_user_info
 }
 
 case $command in
@@ -551,6 +595,14 @@ case $command in
 
     deleteaccount)
         delete_account
+        ;;
+
+    changeemail)
+        change_email
+        ;;
+
+    me | self | user)
+        get_user_info
         ;;
 
 esac
