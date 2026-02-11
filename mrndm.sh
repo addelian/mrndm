@@ -94,7 +94,7 @@ fi
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password|-mv|mv|move)
+        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password|-mv|mv|move|-ls|ls|viewamt)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -116,12 +116,12 @@ postbody=$(jq --null-input \
 retrieve_memos() {
     if [[ -n "$token" ]]; then
         responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
-        results_count=$(echo "$responsejson" | jq -r '.results | length')
+        results_count=$(echo "$responsejson" | jq -r 'length')
         if [[ "$results_count" -eq 0 ]]; then
             echo "No memos submitted."
             exit 0
         fi
-        echo "$responsejson" | jq -r '.results | 
+        echo "$responsejson" | jq -r '
             group_by(.category) | 
             map("| --- " + .[0].category + " --- |\n" + 
                 (sort_by(-.id) | 
@@ -136,12 +136,12 @@ retrieve_memos() {
     retrieve_memos
 }
 
-retrieve_last_five() {
+retrieve_given_amount() {
     if [[ -n "$token" ]]; then
         responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
-        results=$(echo "$responsejson" | jq -r '.results // empty')
+        results=$(echo "$responsejson" | jq -r '. // empty')
         if [[ "$results" ]]; then
-                echo "$responsejson" | jq -r '(.results) as $all | if ($all | length) == 0 then "No memos submitted." else ($all | sort_by(-.id) | .[0:5] | group_by(.category) | map("| --- " + .[0].category + " --- |\n" + (sort_by(-.id)|map(.body + " (" + (.id|tostring) + ")")|join("\n"))) | join("\n\n")) end'
+                echo "$responsejson" | jq -r --arg amt "$option" '(.) as $all | if ($all | length) == 0 then "No memos submitted." else ($all | sort_by(-.id) | .[0:(($amt|tonumber))] | group_by(.category) | map("| --- " + .[0].category + " --- |\n" + (sort_by(-.id)|map(.body + " (" + (.id|tostring) + ")")|join("\n"))) | join("\n\n")) end'
             exit 0
         fi
         echo "error: $responsejson"
@@ -150,7 +150,7 @@ retrieve_last_five() {
     echo "Token not present in config file."
     sleep 1
     authenticate
-    retrieve_last_five
+    retrieve_given_amount
 }
 
 retrieve_memos_by_category() {
@@ -160,12 +160,12 @@ retrieve_memos_by_category() {
     fi
     if [[ -n "$token" ]]; then
         responsejson=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
-        results_count=$(echo "$responsejson" | jq -r '.results | length')
+        results_count=$(echo "$responsejson" | jq -r 'length')
         if [[ "$results_count" -eq 0 ]]; then
             echo "No memos submitted."
             exit 0
         fi
-        echo "$responsejson" | jq -r --arg cat "$catarg" '.results | map(select(.category==$cat)) |
+        echo "$responsejson" | jq -r --arg cat "$catarg" 'map(select(.category==$cat)) |
             sort_by(-.id) | 
             if (.|length)>0 then 
                 ("| --- " + .[0].category + " --- |\n" + (map(.body + " (" + (.id|tostring) + ")") |
@@ -226,7 +226,7 @@ delete() {
         # If no ID provided, find and delete the most recent memo
         if [[ -z "$option" ]]; then
             memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/" | \
-            jq -r '.results | sort_by(-.id) | .[0]')
+            jq -r '. | sort_by(-.id) | .[0]')
             
             memo_id=$(echo "$memo_to_delete" | jq -r '.id')
             
@@ -248,12 +248,18 @@ delete() {
         
         # If ID provided, fetch the memo first, then delete it
         memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$option/")
-        
-        curl -s -X DELETE \
+        memo_response=$(echo "$memo_to_delete" | jq -r '.body // empty')
+        if [[ -z "$memo_response" ]]; then
+            echo "Memo not found with ID $option"
+            exit 1
+        fi
+        response=$(curl --write-out "%{http_code}\n" --output /dev/null -s -X DELETE \
         -H "Authorization: Token $token" \
-        "$baseApiUrl/memos/$option/" > /dev/null
-        
-        # Display the deleted memo
+        "$baseApiUrl/memos/$option/")
+        if [[ "$response" -ne 204 ]]; then
+            echo "Delete failed. Server response code: $response"
+            exit 1
+        fi
         echo "Deleted:"
         echo "$memo_to_delete" | jq -r '.body + " (" + (.id|tostring) + ")"'
         exit 0
@@ -346,7 +352,8 @@ change_category() {
 view() {
     # No option -> show last five memos
     if [[ -z "$option" ]]; then
-        retrieve_last_five
+        option=5
+        retrieve_given_amount
         exit 0
     fi
 
@@ -504,6 +511,10 @@ case $command in
 
     -mv | mv | move)
         change_category
+        ;;
+
+    -ls | ls | viewamt)
+        retrieve_given_amount
         ;;
 
 esac
