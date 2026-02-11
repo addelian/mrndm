@@ -27,22 +27,23 @@ USAGE
     mrndm <command> <subcommand>
 
 SETUP COMMANDS
-    init (-i):              Installs mrndm on your PATH and creates a config file. Run this before you do anything else.
-    register (-r):          Registers a username and password and uses them to retrieve a token.
-    sync (-sc):             Generates a token for an existing user and saves it to the config file. (Alias: login)
-    logout (-l):            Deletes the token from the config file and logs out of the current session.
+    init (-i):                Installs mrndm on your PATH and creates a config file. Run this before you do anything else.
+    register (-r):            Registers a username and password and uses them to retrieve a token.
+    sync (-sc):               Generates a token for an existing user and saves it to the config file. (Alias: login)
+    logout (-l):              Deletes the token from the config file and logs out of the current session.
 
 MEMO-WRITING COMMANDS
-    "Memo text":            Saves a memo (defaults to MISC)
-    "Memo text" <category>: Saves a memo under the specified category
-    delete (-d):            Deletes your most recent memo (returns it after deletion)
-    delete <#>:             Deletes the memo with ID <#>
+    "Memo text":              Saves a memo (defaults to MISC)
+    "Memo text" <category>:   Saves a memo under the specified category
+    move <#> <category> (mv): Moves the memo with ID <#> to the specified category
+    delete (-d):              Deletes your most recent memo (returns it after deletion)
+    delete <#>:               Deletes the memo with ID <#>
 
 MEMO-RETRIEVING COMMANDS
-    view (-v):              Shows your last five memos (grouped by category)
-    view <#>:               Shows the memo with ID <#>
-    view <category>:        Shows all memos in the designated category
-    view all (-va):         Shows all memos (Grouped by category, sorted newest to oldest)
+    view (-v):                Shows your last five memos (grouped by category)
+    view <#>:                 Shows the memo with ID <#>
+    view <category>:          Shows all memos in the designated category
+    view all (-va):           Shows all memos (Grouped by category, sorted newest to oldest)
 
 CATEGORIES
     MISC (default)
@@ -93,7 +94,7 @@ fi
 # If the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
-        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password)
+        -i|init|-v|view|-va|-m|memo|-d|delete|-r|register|-h|help|-s|sync|login|-l|logout|-fp|password|-mv|mv|move)
             ;; # known commands; leave as-is
         *)
             option=$command
@@ -310,6 +311,38 @@ retrieve_token() {
     printf "baseApiUrl=%s\ntoken=%s\ntoken_expiry=\"%s\"\n" "$baseApiUrl" "$token" "$expiry_time" > $config
 }
 
+change_category() {
+    if [[ -n "$token" ]]; then
+        if [[ -z "$option" ]]; then
+            echo "Please provide a memo ID to change its category."
+            exit 1
+        fi
+        re='^[0-9]+$'
+        if ! [[ "$option" =~ $re ]]; then
+            echo "Invalid memo ID. Please provide a numeric ID."
+            exit 1
+        fi
+        updatebody=$(jq --null-input --arg category "$category" '{category: $category}')
+        responsejson=$(curl -s -X PATCH \
+        -H "Authorization: Token $token" \
+        -H "Content-Type:application/json" \
+        -d "$updatebody" "$baseApiUrl/memos/$option/")
+        responsecategory=$(echo "$responsejson" | jq -r '.category // empty')
+        responsebody=$(echo "$responsejson" | jq -r '.body // empty')
+        if [[ -z $responsebody ]]; then
+            echo "Failed to update category. Server response:"
+            echo "$responsejson"
+            exit 1
+        fi
+        echo "Memo ID $option: '$responsebody' category updated to $responsecategory."
+        exit 0
+    fi
+    echo "Token not present in config file."
+    sleep 1
+    authenticate
+    change_category
+}
+
 view() {
     # No option -> show last five memos
     if [[ -z "$option" ]]; then
@@ -467,6 +500,10 @@ case $command in
 
     -fp | password)
         reset_password
+        ;;
+
+    -mv | mv | move)
+        change_category
         ;;
 
 esac
