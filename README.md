@@ -8,7 +8,7 @@
 
 ## quickstart
 
-1. run `(path/to/script/)mrndm.sh init` and follow the instructions
+1. run `(path/to/script)/mrndm.sh init` and follow the instructions
 2. run `mrndm register` to create an account
 3. run `mrndm "hey earth!"` to save your first memo
 4. run `mrndm view` to view the memo you just created
@@ -18,7 +18,7 @@
 
 ### account commands
 
-`(path/to/package)/mrndm.sh init` (alias: `mrndm -i`)
+`(path/to/script)/mrndm.sh init` (alias: `mrndm -i`)
 
 - installs mrndm on your PATH and creates a config file, run this before you do anything else
 
