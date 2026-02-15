@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# |---------------------------------|
+# |--- CONFIG / SETUP MISCELLANY ---|
+# |---------------------------------|
+
 set -e
 
 RED='\033[0;31m'
@@ -21,7 +25,7 @@ if [[ -n "$3" ]]; then
     category=$3
 fi
 
-# If no arguments supplied, show a minimal quick usage summary and exit
+# if no arguments supplied, show a quick usage summary and exit
 if [[ -z "$command" ]]; then
         cat <<'USAGE'
 Usage:
@@ -116,7 +120,7 @@ case $command in
 
 esac
 
-# If the first arg isn't a known command, treat it as the memo body
+# if the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
     case $command in
         -i|init|-v|view|-va|-m|memo|-d|delete|-z|undo|-r|register|-h|help|-s|sync|login|-li|logout|-lo|-fp|forgotpassword|-mv|mv|move|-ls|ls|viewamt|deleteaccount|changeemail|me|self|user|logoutall|-la)
@@ -297,7 +301,6 @@ retrieve_token() {
         echo "$response"
         exit 1
     fi
-    # Overwrite config with baseApiUrl and token
     expiry_time=$(date -d "+90 days" +"%Y-%m-%d %H:%M:%S")
     printf "baseApiUrl=%s\ntoken=%s\ntoken_expiry=\"%s\"\n" "$baseApiUrl" "$token" "$expiry_time" > $config
 }
@@ -503,12 +506,12 @@ undo() {
 
 delete() {
     if [[ -n "$token" ]]; then
-        # If no ID provided, deletes the most recent memo (undo)
+        # if no ID provided, undo instead
         if [[ -z "$option" ]]; then
             undo
         fi
         
-        # If ID provided, fetch the memo first, then delete it
+        # fetch memo for easy return before deletion
         memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$option/")
         if [[ -z "$memo_to_delete" ]]; then
             echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
@@ -536,20 +539,18 @@ delete() {
 # |--------------------------------|
 
 view() {
-    # No option -> show last five memos
+    # no option -> ls 5 by default
     if [[ -z "$option" ]]; then
         option=5
         retrieve_given_amount
         exit 0
     fi
 
-    # Numeric option -> single memo by ID
     if [[ $option =~ ^[0-9]+$ ]]; then
         retrieve_memo $option
         exit 0
     fi
 
-    # Direct category (e.g. mrndm view TODO)
     if [[ $option = "TODO" || $option = "RMND" || $option = "MISC" ||
         $option = "IDEA" || $option = "WORK" || $option = "TECH" || 
         $option = "HOME" || $option = "QUOT" || $option = "EARS" || 
@@ -559,7 +560,6 @@ view() {
         exit 0
     fi
 
-    # All memos
     if [[ $option = "all" || $option = "-va" || $option = "--all" || $option = "-a" ]]; then
         retrieve_memos
         exit 0
