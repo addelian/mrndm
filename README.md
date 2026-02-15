@@ -1,62 +1,122 @@
 # mrndm
 
-## Purpose
+## purpose
 
 - call mrndm
 - get the thought out of your head
 - move on with your day
 
-## Usage
+## quickstart
 
-`(path/to/package/)mrndm.sh init (-i)`
+1. run `(path/to/script/)mrndm.sh init` and follow the instructions
+2. run `mrndm register` to create an account
+3. run `mrndm "hey earth!"` to save your first memo
+4. run `mrndm view` to view the memo you just created
+5. run `mrndm help` to learn more about mrndm
 
-- Installs mrndm on your PATH and creates a config file. Run this before you do anything else.
+## usage
 
-`mrndm register (-r)`
+### account commands
 
-- Registers a username and password and uses them to retrieve a token, which is saved to the config file.
+`(path/to/package)/mrndm.sh init` (alias: `mrndm -i`)
+
+- installs mrndm on your PATH and creates a config file, run this before you do anything else
+
+`mrndm register` (alias: `mrndm -r`)
+
+- registers a username and password and uses them to retrieve a token, which is saved to the config file
 
 `mrndm sync` (alias: `mrndm login`)
 
-- Run this when you're using mrndm on a new device for the first time or to regenerate a stale token (will prompt for username & password)
+- run this when you're using mrndm on a new device for the first time or to regenerate a stale token (will prompt for username & password)
 
-`mrndm logout (-l)`
+`mrndm logout` (alias: `mrndm -lo`)
 
-- Log out of your current mrndm session and removes your session token from the config file
+- log out of your current mrndm session and removes your session token from the config file
 
-`mrndm "We should swap Christmas and Valentine's Day"`
+`mrndm logoutall` (alias: `mrndm -la`)
+
+- logs out of all sessions everywhere (including your current one) and stales all existing tokens
+
+`mrndm forgotpassword` (alias: `mrndm -fp`)
+
+- initiates the password reset process (sends an email with instructions)
+- not possible without an email assigned to your account
+
+`mrndm user` (alias: `mrndm me`)
+
+- shows information about your account (username, email if present)
+
+`mrndm changeemail`
+
+- changes (or adds) the email associated with your account (which is used solely for password recovery)
+
+`mrndm deleteaccount`
+
+- deletes your account and all associated memos
+- irreversible action
+
+### memo-writing examples
+
+`mrndm "we should swap christmas and valentine's day"`
 
 - save this memo and assign the MISC category by default
 
-`mrndm "Call congress about swapping Christmas and Valentine's Day" RMND`
+`mrndm "call congress about swapping christmas and valentine's Day" RMND`
 
 - save this memo and assign the designated RMND category
 
-`mrndm view (-v)`
+`mrndm move 2571 TODO`
 
-- view your last five memos
+- moves a memo with the ID 2571 to the RMND category
+- memos IDs are immediately associated & made viewable upon saving via `view` commands
 
-`mrndm view #`
+`mrndm undo` (alias: `mrndm -z`)
 
-- view the memo with an ID of # (IDs are assigned upon initial submission)
+- delete your most recent memo (returns it after deletion)
 
-`mrndm view (RMND/TODO/MISC)`
+`mrndm delete #` (alias: `mrndm -d`)
 
-- view all memos you've saved in the designated category
+- delete the memo with an ID of # (IDs are assigned upon initial submission)
 
-`mrndm view all (-va)`
+### memo-retrieving examples
+
+`mrndm view` (alias: `mrndm -v`)
+
+- view your last five memos (sorted by category and with IDs visible)
+
+`mrndm view 1625`
+
+- view the memo with an ID of 1625
+
+`mrndm view WORK`
+
+- view all memos you've saved in the WORK category
+
+`mrndm viewamt 42` (alias: `mrndm -ls`)
+
+- view the last 42 memos you've written
+
+`mrndm view all` (alias: `mrndm -va`)
 
 - view all of your memos 
 - i make no promises that this is a good idea
 
-`mrndm delete`
-
-- delete your most recent memo (returns it after deletion)
-
-`mrndm delete #`
-
-- delete the memo with an ID of # (IDs are assigned upon initial submission)
-
 `mrndm help (-h)`
 
 - view the full help screen (which looks suspiciously like this README)
+
+## available categories
+
+MISC (default)
+RMND
+TODO
+IDEA
+WORK
+TECH
+HOME
+QUOT
+EARS
+EYES
+FOOD
+DRNK
