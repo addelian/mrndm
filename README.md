@@ -108,15 +108,15 @@
 
 ## available categories
 
-MISC (default)
-RMND
-TODO
-IDEA
-WORK
-TECH
-HOME
-QUOT
-EARS
-EYES
-FOOD
-DRNK
+- MISC (default)
+- RMND
+- TODO
+- IDEA
+- WORK
+- TECH
+- HOME
+- QUOT
+- EARS
+- EYES
+- FOOD
+- DRNK
