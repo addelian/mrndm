@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+#
+# mrndm - a CLI-first brain dump / jotter analog
 
 # |---------------------------------|
 # |--- CONFIG / SETUP MISCELLANY ---|
@@ -65,6 +67,18 @@ if [[ -n $command ]]; then
 fi
 
 # |------------------------|
+# |--- HELPER FUNCTIONS ---|
+# |------------------------|
+
+require_token() {
+  if [[ -z "$token" ]]; then
+    echo "Token not present in config file."
+    sleep 1
+    authenticate
+  fi
+}
+
+# |------------------------|
 # |--- ACCOUNT COMMANDS ---|
 # |------------------------|
 
@@ -123,7 +137,7 @@ FULL
 }
 
 init() {
-  read -p "Choose where you want to install mrndm [default: $HOME/.local/bin]: " installdir
+  read -r -p "Choose where you want to install mrndm [default: $HOME/.local/bin]: " installdir
   installdir=${installdir:-"$HOME/.local/bin"}
   if [[ -d "$installdir" ]] || mkdir -p "$installdir" 2>/dev/null; then
     dest="$installdir/mrndm"
@@ -134,7 +148,7 @@ init() {
         echo "Config file already exists. Config initialization not needed."
       else
         echo "No config file detected."
-        read -p "Are you running mrndm in dev mode or user mode? (dev/user) [default: user]: " devmode
+        read -r -p "Are you running mrndm in dev mode or user mode? (dev/user) [default: user]: " devmode
         devmode=${devmode:-"user"}
         if [[ "$devmode" == "dev" ]]; then
           echo "Initializing config with a local URL. Run 'mrndm register' to register, or 'mrndm sync' if you already have an account."
@@ -162,12 +176,12 @@ register() {
     echo "Error retrieving configuration information. Have you run '(path/to/here)/mrndm.sh init' yet?"
     exit 1
   fi
-  read -p -r "Enter a username: " newuser
-  read -s -p -r "Enter a password: " newpass
+  read -r -p "Enter a username: " newuser
+  read -r -s -p "Enter a password: " newpass
   echo ""
-  read -s -p -r "Re-enter your password: " newpass2
+  read -r -s -p "Re-enter your password: " newpass2
   echo ""
-  read -p -r "Enter your email (optional, for password recovery): " newemail
+  read -r -p "Enter your email (optional, for password recovery): " newemail
   registerbody=$(printf '{"username":"%s","password":"%s","password2":"%s","email":"%s"}' \
   "$(printf '%s' "$newuser" | sed 's/"/\\"/g')" \
   "$(printf '%s' "$newpass" | sed 's/"/\\"/g')" \
@@ -194,8 +208,8 @@ register() {
 }
 
 authenticate() {
-  read -p -r "Enter your username: " user
-  read -s -p -r "Enter your password: " pass
+  read -r -p "Enter your username: " user
+  read -r -s -p "Enter your password: " pass
   echo ""
   echo "Attempting to authenticate..."
   retrieve_token "$user" "$pass"
@@ -231,43 +245,35 @@ retrieve_token() {
 }
 
 retrieve_user_info() {
-  if [[ -n "$token" ]]; then
-    response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/users/me/")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    echo "$response"
-    exit 0
+  require_token
+  response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/users/me/")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  echo "$response"
+  exit 0
 }
 
 change_email() {
-  if [[ -n "$token" ]]; then
-    read -p -r "Enter the email address you wish to associate with your account: " newemail
-    updatebody=$(printf '{"email":"%s"}' \
-      "$(printf '%s' "$newemail" | sed 's/"/\\"/g')")
-    response=$(curl -s -X PATCH \
-      -H "Authorization: Token $token" \
-      -H "Content-Type:application/json" \
-      -d "$updatebody" "$baseApiUrl/users/me/")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    echo "$response"
-    exit 0
+  require_token
+  read -r -p "Enter the email address you wish to associate with your account: " newemail
+  updatebody=$(printf '{"email":"%s"}' \
+    "$(printf '%s' "$newemail" | sed 's/"/\\"/g')")
+  response=$(curl -s -X PATCH \
+    -H "Authorization: Token $token" \
+    -H "Content-Type:application/json" \
+    -d "$updatebody" "$baseApiUrl/users/me/")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  echo "$response"
+  exit 0
 }
 
 reset_password() {
-  read -p -r "Password recovery - enter your email: " email
+  read -r -p "Password recovery - enter your email: " email
   resetbody=$(printf '{"email":"%s"}' \
     "$(printf '%s' "$email" | sed 's/"/\\"/g')")
   response=$(curl -s -X POST -H "Content-Type:application/json" -d "$resetbody" "$baseApiUrl/auth/password-reset/")
@@ -296,39 +302,34 @@ logout() {
   echo "No token in the config file."
   sleep 1
   echo "Options:"
-  echo "    mrndm sync - you meant to login, not logout"
+  echo "    mrndm login - you meant to login, not logout"
   echo "    mrndm register - you don't have an account yet"
-  echo "    mrndm logout all - you want to logout of all sessions everywhere"
   exit 1
 }
 
 logout_all() {
-  if [[ -n "$token" ]]; then
-    response=$(curl -s -X POST \
-      --write-out "%{http_code}\n" --output /dev/null \
-      -H "Authorization: Token $token" \
-      -H "Content-Type:application/json" \
-      -d "" "$baseApiUrl/auth/logout-all/")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    if [[ "$response" -ne 204 ]]; then
-      echo "Logout failed. Server response code: $response"
-      exit 1
-    fi
-    echo "Logged out of all sessions."
-    printf "baseApiUrl=%s\n" "$baseApiUrl" > "$config"
-    exit 0
+  require_token
+  response=$(curl -s -X POST \
+    --write-out "%{http_code}\n" --output /dev/null \
+    -H "Authorization: Token $token" \
+    -H "Content-Type:application/json" \
+    -d "" "$baseApiUrl/auth/logout-all/")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file. You need to be logged in before you can logout of all other sessions (including this one)."
-  sleep 1
-  authenticate
+  if [[ "$response" -ne 204 ]]; then
+    echo "Logout failed. Server response code: $response"
+    exit 1
+  fi
+  echo "Logged out of all sessions."
+  printf "baseApiUrl=%s\n" "$baseApiUrl" > "$config"
+  exit 0
 }
 
 delete_account() {
   if [[ -n "$token" ]]; then
-    read -p -r "Are you sure you want to delete your account? This action cannot be undone and all of your memos will be erased. (y/N) " confirm
+    read -r -p "Are you sure you want to delete your account? This action cannot be undone and all of your memos will be erased. (y/N) " confirm
     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
       echo "Account deletion cancelled."
       exit 0
@@ -347,10 +348,7 @@ delete_account() {
     exit 0
   fi
   echo "No token in the config file."
-  sleep 1
-  echo "Options:"
-  echo "    mrndm login - you need to login and retrieve a token before you can delete your account"
-  echo "    mrndm logout all - you want to logout of all sessions everywhere (need to be logged in first)"
+  echo "You need to be logged in before you can delete your account."
   exit 1
 }
 
@@ -359,97 +357,81 @@ delete_account() {
 # |-----------------------------|
 
 submit() {
-  if [[ -n "$token" ]]; then
-    postbody=$(printf '{"body":"%s","category":"%s"}' \
-    "$(printf '%s' "$option" | sed 's/"/\\"/g')" \
-    "$(printf '%s' "$category" | sed 's/"/\\"/g')")
-    response=$(curl -s -X POST \
-      -H "Authorization: Token $token" \
-      -H "Content-Type:application/json" \
-      -d "$postbody" "$baseApiUrl/memos/")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    echo "$response"
-    exit 0
+  require_token
+  postbody=$(printf '{"body":"%s","category":"%s"}' \
+  "$(printf '%s' "$option" | sed 's/"/\\"/g')" \
+  "$(printf '%s' "$category" | sed 's/"/\\"/g')")
+  response=$(curl -s -X POST \
+    -H "Authorization: Token $token" \
+    -H "Content-Type:application/json" \
+    -d "$postbody" "$baseApiUrl/memos/")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  echo "$response"
+  exit 0
 }
 
 change_category() {
-  if [[ -n "$token" ]]; then
-    if [[ -z "$option" ]]; then
-      echo "Please provide a memo ID to change its category."
-      exit 1
-    fi
-    re='^[0-9]+$'
-    if ! [[ "$option" =~ $re ]]; then
-      echo "Invalid memo ID. Please provide a numeric ID."
-      exit 1
-    fi
-    updatebody=$(printf '{"category":"%s"}' \
-    "$(printf '%s' "$category" | sed 's/"/\\"/g')")
-    response=$(curl -s -X PATCH \
-      -H "Authorization: Token $token" \
-      -H "Content-Type:application/json" \
-      -d "$updatebody" "$baseApiUrl/memos/$option/")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    echo "$response"
-    exit 0
+  require_token
+  if [[ -z "$option" ]]; then
+    echo "Please provide a memo ID to change its category."
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  re='^[0-9]+$'
+  if ! [[ "$option" =~ $re ]]; then
+    echo "Invalid memo ID. Please provide a numeric ID."
+    exit 1
+  fi
+  updatebody=$(printf '{"category":"%s"}' \
+  "$(printf '%s' "$category" | sed 's/"/\\"/g')")
+  response=$(curl -s -X PATCH \
+    -H "Authorization: Token $token" \
+    -H "Content-Type:application/json" \
+    -d "$updatebody" "$baseApiUrl/memos/$option/")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
+  fi
+  echo "$response"
+  exit 0
 }
 
 undo() {
-  if [[ -n "$token" ]]; then
-    memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/?latest=true")
-    if [[ -z "$memo_to_delete" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    curl -s -X DELETE -H "Authorization: Token $token" "$baseApiUrl/memos/undo/"
-    exit 0
+  require_token
+  memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/?latest=true")
+  if [[ -z "$memo_to_delete" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  curl -s -X DELETE -H "Authorization: Token $token" "$baseApiUrl/memos/undo/"
+  exit 0
 }
 
 delete() {
-  if [[ -n "$token" ]]; then
-    # if no ID provided, undo instead
-    if [[ -z "$option" ]]; then
-      undo
-    fi
-    
-    # fetch memo for easy return before deletion
-    memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$option/")
-    if [[ -z "$memo_to_delete" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    response=$(curl --write-out "%{http_code}\n" --output /dev/null -s -X DELETE \
-    -H "Authorization: Token $token" \
-    "$baseApiUrl/memos/$option/")
-    if [[ "$response" -ne 204 ]]; then
-      echo "Delete failed. Server response code: $response"
-      exit 1
-    fi
-    echo "Deleted:"
-    echo "$memo_to_delete"
-    exit 0
+  require_token
+  # if no ID provided, undo instead
+  if [[ -z "$option" ]]; then
+    undo
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  
+  # fetch memo for easy return before deletion
+  memo_to_delete=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$option/")
+  if [[ -z "$memo_to_delete" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
+  fi
+  response=$(curl --write-out "%{http_code}\n" --output /dev/null -s -X DELETE \
+  -H "Authorization: Token $token" \
+  "$baseApiUrl/memos/$option/")
+  if [[ "$response" -ne 204 ]]; then
+    echo "Delete failed. Server response code: $response"
+    exit 1
+  fi
+  echo "Deleted:"
+  echo "$memo_to_delete"
+  exit 0
 }
 
 # |--------------------------------|
@@ -488,67 +470,51 @@ view() {
 }
 
 retrieve_memo() {
-  if [[ -n "$token" ]]; then
-    response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$1/")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    echo "$response"
-    exit 0
+  require_token
+  response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/$1/")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  echo "$response"
+  exit 0
 }
 
 retrieve_memos() {
-  if [[ -n "$token" ]]; then
-    response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    echo "$response"
-    exit 0
+  require_token
+  response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  echo "$response"
+  exit 0
 }
 
 retrieve_given_amount() {
-  if [[ -n "$token" ]]; then
-    response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/?limit=$option")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    echo "$response"
-    exit 0
+  require_token
+  response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/?limit=$option")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  echo "$response"
+  exit 0
 }
 
 retrieve_memos_by_category() {
+  require_token
   catarg="$1"
   if [[ -z "$catarg" ]]; then
     catarg="$category"
   fi
-  if [[ -n "$token" ]]; then
-    response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/?category=$catarg")
-    if [[ -z "$response" ]]; then
-      echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
-      exit 1
-    fi
-    echo "$response"
-    exit 0
+  response=$(curl -s -H "Authorization: Token $token" "$baseApiUrl/memos/?category=$catarg")
+  if [[ -z "$response" ]]; then
+    echo "Error: No response from the server. Did you run 'mrndm.sh init'?"
+    exit 1
   fi
-  echo "Token not present in config file."
-  sleep 1
-  authenticate
+  echo "$response"
+  exit 0
 }
 
 case $command in
