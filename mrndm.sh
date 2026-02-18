@@ -257,7 +257,7 @@ init() {
           printf "baseApiUrl=http://127.0.0.1:8000/api/v1" > "$config"
         elif [[ "$devmode" == "user" ]]; then
           echo "Initializing config with the default server URL. Run 'mrndm register' to register, or 'mrndm sync' if you already have an account."
-          printf "baseApiUrl=https://our.plots.club/api/v1" > "$config"
+          printf "baseApiUrl=https://mrndm.sh/api/v1" > "$config"
         else
           echo "Invalid choice. Exiting installation."
           exit 1
