@@ -56,6 +56,13 @@
 - deletes your account and all associated memos
 - irreversible action
 
+`mrndm linkphone` (work in progress)
+
+- provides a confirmation code to associate a phone number with your existing account
+- enables you to text a phone number to interact with mrndm
+- limited commandset--submit and retrieve single memos only
+- standard messaging rates apply. entirely optional - not needed for baseline CLI functionality of mrndm
+
 ### memo-writing examples
 
 `mrndm "we should swap christmas and valentine's day"`
