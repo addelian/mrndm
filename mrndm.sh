@@ -56,7 +56,7 @@ fi
 # if the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
   case $command in
-    -i|init|-v|view|-va|-m|memo|-d|delete|-z|undo|-r|register|-h|help|-s|sync|login|-li|logout|-lo|-fp|forgotpassword|-mv|mv|move|-ls|ls|viewamt|deleteaccount|changeemail|me|self|user|logoutall|-la)
+    -i|init|-v|view|-va|-m|memo|-d|delete|-z|undo|-r|register|-h|help|-s|sync|login|-li|logout|-lo|-fp|forgotpassword|-mv|mv|move|-ls|ls|viewamt|deleteaccount|changeemail|me|self|user|logoutall|-la|linkphone)
       ;; # known commands; leave as-is
     *)
       option=$command
@@ -408,6 +408,16 @@ delete_account() {
   exit 0
 }
 
+linkphone() {
+  read -r -p "By linking your phone number, you can send and receive memos as text messages. This is optional and you can opt-out at any time. Do you want to link your phone number now? (y/N) " confirm
+  if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+    echo "Phone number linking cancelled."
+    exit 0
+  fi
+  read -r -p "Enter your phone number (with country code, e.g. +1234567890): " phone
+  echo "Text AUTH 7F92KD to +1 586-276-7636 to complete the linking process. This is a one-time code and will expire in 10 minutes."
+}
+
 # |-----------------------------|
 # |--- MEMO-WRITING COMMANDS ---|
 # |-----------------------------|
@@ -574,6 +584,10 @@ case $command in
 
   -v | view | -va | viewamt | -ls | ls | --all | -a)
     handle_view
+    ;;
+
+  linkphone)
+    linkphone
     ;;
 
 esac
