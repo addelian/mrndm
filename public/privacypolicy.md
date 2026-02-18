@@ -110,4 +110,4 @@ this privacy policy may be updated from time to time. any changes will be posted
 
 ## 11. contact
 
-if you have questions about this privacy policy or wish to exercise your data rights, you may contact me at `nic (at) plots.club`.
+if you have questions about this privacy policy or wish to exercise your data rights, you may contact me at `nic (at) mrndm.sh`.
