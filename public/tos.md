@@ -84,6 +84,20 @@ these terms are governed by the laws of the jurisdiction in which i operate, wit
 
 these terms may be updated from time to time. continued use of the tool after changes are posted constitutes acceptance of the updated terms.
 
-## 12. contact
+## 12. terms specific to `mrndm linkphone`
+
+1. `mrndm linkphone` is a phone-based implementation of mrndm.sh wherein your memos can be saved and retrieved via  texting from a linked phone number. should you choose to participate, you'll initially register your phone number with the database via a confirmation code sent by calling the command `mrndm linkphone` from the command line. once linked, you can subsequently send or retrieve memos from your phone.
+
+2. you can cancel mrndm.sh's s.m.s. service at any time. just text "STOP" to the short code. after you send the s.m.s. message "STOP" to us, we will send you an s.m.s. message to confirm that you have been unsubscribed. After this, you will no longer receive s.m.s. messages from us. if you want to join again, just sign up as you did the first time and we will start sending s.m.s. messages to you again.
+
+3. if you are experiencing issues with the messaging program you can get help directly at `nic (at) plots.club`.
+
+4. carriers are not liable for delayed or undelivered messages.
+
+5. as always, message and data rates may apply for any messages sent to you from us and to us from you. you will receive precisely as many messages as you send - `mrndm linkphone` will never send you an unprompted message. if you have any questions about your text plan or data plan, it is best to contact your wireless provider.
+
+6. if you have any questions regarding privacy, please read our privacy policy (also included in this repository).
+
+## 13. contact
 
 if you have questions about these terms, you may contact me at `nic (at) plots.club`.
