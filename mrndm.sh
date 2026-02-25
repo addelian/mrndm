@@ -409,12 +409,15 @@ delete_account() {
 }
 
 linkphone() {
-  read -r -p "By linking your phone number, you can send and receive memos as text messages. This is optional and you can opt-out at any time. Do you want to link your phone number now? (y/N) " confirm
+  echo "By linking your phone number, you agree to receive text messages from mrndm. Message and data rates may apply." 
+  echo "Messages will only ever be sent as a response to user input. Reply STOP to opt out." 
+  echo "See our terms (https://mrndm.sh/tos) and Privacy Policy (https://mrndm.sh/privacypolicy). We do not share your information with third parties for marketing purposes."
+  read -r -p "Please type 'y' or 'Y' to confirm; any other key will cancel. " confirm
   if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
     echo "Phone number linking cancelled."
     exit 0
   fi
-  read -r -p "Enter your phone number (with country code, e.g. +1234567890): " phone
+  read -r -p "Enter your phone number (with country code, e.g. +15551234567): " phone
   echo "Text AUTH 7F92KD to +1 586-276-7636 to complete the linking process. This is a one-time code and will expire in 10 minutes."
 }
 
