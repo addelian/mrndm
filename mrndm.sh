@@ -56,7 +56,7 @@ fi
 # if the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
   case $command in
-    -i|init|-v|view|-va|-m|memo|-d|delete|-z|undo|-r|register|-h|help|-s|sync|login|-li|logout|-lo|-fp|forgotpassword|-mv|mv|move|-ls|ls|viewamt|deleteaccount|changeemail|me|self|user|logoutall|-la|linkphone)
+    -i|init|-v|view|-va|-m|memo|-d|delete|rm|-z|undo|-r|register|-h|help|-s|sync|login|-li|logout|-lo|-fp|forgotpassword|-mv|mv|move|-ls|ls|viewamt|deleteaccount|changeemail|me|self|user|logoutall|-la|linkphone)
       ;; # known commands; leave as-is
     *)
       option=$command
@@ -167,7 +167,7 @@ api_request_expect_nocontent() {
 
 is_valid_category() {
   for cat in "${CATEGORIES[@]}"; do
-    [[ "$1" == "$cat" ]] && return 0
+    [[ "${1^^}" == "$cat" ]] && return 0
   done
   return 1
 }
@@ -510,7 +510,7 @@ handle_view() {
   fi
 
   if is_valid_category "$option"; then
-    get_memos "/memos/?category=$option"
+    get_memos "/memos/?category=${option^^}"
     return
   fi
 
@@ -581,7 +581,7 @@ case $command in
     undo
     ;;
 
-  -d | delete)
+  -d | delete | rm)
     delete
     ;;
 
