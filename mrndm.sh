@@ -36,7 +36,7 @@ if [[ -z "$command" ]]; then
     cat <<'USAGE'
 Usage:
 
-mrndm "Your memo text"
+mrndm 'Your memo text'
   - Saves a memo
 
 mrndm view
@@ -201,8 +201,8 @@ ACCOUNT COMMANDS
   deleteaccount:            Deletes your account and all associated memos. This is irreversible
 
 MEMO-WRITING COMMANDS
-  "Memo text":              Saves a memo (defaults to MISC)
-  "Memo text" <category>:   Saves a memo under the specified category
+  'Memo text':              Saves a memo (defaults to MISC)
+  'Memo text' <category>:   Saves a memo under the specified category
   move <#> <category> (mv): Moves the memo with ID <#> to the specified category
   undo (-z):                Deletes your most recent memo (returns it after deletion)
   delete <#> (-d):          Deletes the memo with ID <#> (returns it after deletion)
@@ -229,9 +229,9 @@ CATEGORIES
   DRNK
 
 EXAMPLES
-  mrndm "So it goes"
+  mrndm 'So it goes'
   mrndm view
-  mrndm "We're out of coffee" RMND
+  mrndm 'We\'re out of coffee' RMND
   mrndm view TODO
   mrndm delete
   mrndm delete 3

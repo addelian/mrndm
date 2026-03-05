@@ -10,7 +10,7 @@
 
 1. run `(path/to/script)/mrndm.sh init` and follow the instructions
 2. run `mrndm register` to create an account
-3. run `mrndm "hey earth!"` to save your first memo
+3. run `mrndm 'hey earth!'` to save your first memo
 4. run `mrndm view` to view the memo you just created
 5. run `mrndm help` to learn more about mrndm
 
@@ -65,11 +65,11 @@
 
 ### memo-writing examples
 
-`mrndm "we should swap christmas and valentine's day"`
+`mrndm 'we should swap christmas and valentine's day'`
 
 - save this memo and assign the MISC category by default
 
-`mrndm "call congress about swapping christmas and valentine's Day" RMND`
+`mrndm 'call congress about swapping christmas and valentine's Day' RMND`
 
 - save this memo and assign the designated RMND category
 
