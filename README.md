@@ -127,3 +127,7 @@
 - EYES
 - FOOD
 - DRNK
+
+## gotcha
+
+friendly heads up to use single quotes when you write memos - you're welcome to use double quotes if you prefer, but you'll have to escape special characters like `!` or others depending on your shell rules.
