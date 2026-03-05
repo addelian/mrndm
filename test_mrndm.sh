@@ -1,179 +1,287 @@
 #!/usr/bin/env bash
 
-# test_mrndm.sh - Test suite for mrndm
-# Run with: bash test_mrndm.sh
+set -euo pipefail
 
-set -e
+SCRIPT="${1:-./mrndm.sh}"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+if [[ ! -f "$SCRIPT" ]]; then
+  echo "Usage: $0 ./mrndm.sh"
+  exit 1
+fi
 
-# Test counters
-TESTS_RUN=0
-TESTS_PASSED=0
-TESTS_FAILED=0
+TEST_DIR="$(mktemp -d)"
+MOCK_BIN="$TEST_DIR/bin"
+MOCK_HOME="$TEST_DIR/home"
+CONFIG_DIR="$MOCK_HOME/.config"
+CONFIG_FILE="$CONFIG_DIR/mrndm.conf"
 
-# Create a temporary directory for test config
-TEST_DIR=$(mktemp -d)
-TEST_CONFIG="$TEST_DIR/mrndm.config"
-cat > "$TEST_CONFIG" <<EOF
-baseApiUrl=http://test-api.local
-username=testuser
-password=testpass
-token=test-token-12345
+mkdir -p "$MOCK_BIN" "$CONFIG_DIR"
+
+PATH="$MOCK_BIN:$PATH"
+HOME="$MOCK_HOME"
+
+PASS=0
+FAIL=0
+
+############################################
+# Fake curl implementation
+############################################
+
+cat > "$MOCK_BIN/curl" <<'EOF'
+#!/usr/bin/env bash
+
+echo "$@" >> "$TEST_TMP/curl.log"
+
+case "$MOCK_CURL_MODE" in
+
+login_success)
+  printf '{"token":"abc123"}\n200'
+  ;;
+
+register_success)
+  printf '{"username":"tester"}\n200'
+  ;;
+
+create_memo)
+  printf '{"id":1,"body":"memo"}\n201'
+  ;;
+
+get_memos)
+  printf '[{"id":1},{"id":2}]\n200'
+  ;;
+
+get_single)
+  printf '{"id":5,"body":"hello"}\n200'
+  ;;
+
+latest_memo)
+  printf '{"id":9,"body":"latest"}\n200'
+  ;;
+
+delete_ok)
+  printf '\n204'
+  ;;
+
+error_500)
+  printf '{"error":"server"}\n500'
+  ;;
+
+network_error)
+  exit 7
+  ;;
+
+*)
+  printf '{}\n200'
+  ;;
+
+esac
 EOF
 
-# Mock curl function
-curl() {
-    local method="POST"
-    local url=""
-    
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -X) method="$2"; shift 2 ;;
-            -H|--header) shift 2 ;;
-            -d|--data) shift 2 ;;
-            -s|--silent) shift ;;
-            http*) url="$1"; shift ;;
-            *) shift ;;
-        esac
-    done
-    
-    # Mock responses based on URL
-    case "$url" in
-        http://test-api.local/memos/)
-            if [[ "$method" = "POST" ]]; then
-                echo '{"id":999,"body":"test memo","category":"MISC","author":"testuser"}'
-            else
-                echo '{"count":3,"next":null,"previous":null,"results":[{"id":3,"body":"third memo","category":"TODO","author":"testuser"},{"id":2,"body":"second memo","category":"MISC","author":"testuser"},{"id":1,"body":"first memo","category":"RMND","author":"testuser"}]}'
-            fi
-            ;;
-        http://test-api.local/memos/1/)
-            echo '{"id":1,"body":"first memo","category":"RMND","author":"testuser"}'
-            ;;
-        http://test-api.local/memos/2/)
-            echo '{"id":2,"body":"second memo","category":"MISC","author":"testuser"}'
-            ;;
-        http://test-api.local/memos/999/)
-            if [[ "$method" = "DELETE" ]]; then
-                echo '{"id":999,"body":"test memo","category":"MISC","author":"testuser"}'
-            fi
-            ;;
-        *)
-            echo "{}"
-            ;;
-    esac
+chmod +x "$MOCK_BIN/curl"
+
+export TEST_TMP="$TEST_DIR"
+
+############################################
+# Helpers
+############################################
+
+pass() {
+  echo "PASS: $1"
+  ((++PASS))
 }
 
-export -f curl
-
-# Test framework functions
-test_case() {
-    local name="$1"
-    TESTS_RUN=$((TESTS_RUN + 1))
-    echo -e "${YELLOW}Test $TESTS_RUN: $name${NC}"
+fail() {
+  echo "FAIL: $1"
+  ((++FAIL))
 }
 
-assert_equal() {
-    local expected="$1"
-    local actual="$2"
-    local msg="${3:-}"
-    
-    if [[ "$expected" = "$actual" ]]; then
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-        echo -e "${GREEN}✓ PASSED${NC}"
-    else
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-        echo -e "${RED}✗ FAILED${NC}: $msg"
-        echo "  Expected: $expected"
-        echo "  Actual:   $actual"
-    fi
+run() {
+  set +e
+  output=$("$@" 2>&1)
+  code=$?
+  set -e
 }
 
-assert_contains() {
-    local haystack="$1"
-    local needle="$2"
-    local msg="${3:-}"
-    
-    if [[ "$haystack" == *"$needle"* ]]; then
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-        echo -e "${GREEN}✓ PASSED${NC}"
-    else
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-        echo -e "${RED}✗ FAILED${NC}: $msg"
-        echo "  Expected to contain: $needle"
-        echo "  Actual: $haystack"
-    fi
+write_config() {
+cat > "$CONFIG_FILE" <<EOF
+baseApiUrl=http://api.test
+token=testtoken
+token_expiry="2099-01-01 00:00:00"
+EOF
 }
 
-# Run tests in the test environment
-run_test() {
-    cd "$TEST_DIR"
-    cp "$TEST_DIR/mrndm.config" ./mrndm.config
-    "$@"
-    cd - > /dev/null
+reset_logs() {
+  : > "$TEST_TMP/curl.log"
 }
 
-# ============== ARGUMENT PARSING TESTS ==============
+############################################
+# TESTS
+############################################
 
-test_case "No arguments shows quick help"
-output=$(run_test bash /home/nic/workspace/github.com/addelian/mrndm/mrndm.sh 2>&1 || true)
-assert_contains "$output" "mrndm help (mrndm -h)" "No-arg output should contain reference to help flag"
+test_usage() {
+  run bash "$SCRIPT"
 
-test_case "Help flag shows full help"
-output=$(run_test bash /home/nic/workspace/github.com/addelian/mrndm/mrndm.sh -h 2>&1 || true)
-assert_contains "$output" "init (-i)" "Help output should contain init command"
+  if [[ "$output" == *"Usage:"* ]]; then
+    pass "usage shown"
+  else
+    fail "usage not shown"
+  fi
+}
 
-test_case "help command shows full help"
-output=$(run_test bash /home/nic/workspace/github.com/addelian/mrndm/mrndm.sh help 2>&1 || true)
-assert_contains "$output" "init (-i)" "help command should show init command"
+test_submit_memo() {
 
-# ============== FORMATTING TESTS ==============
+  write_config
+  reset_logs
 
-test_case "Single memo formats with category header"
-result=$(echo '{"id":5,"body":"test memo","category":"TODO","author":"testuser"}' | jq -r '"| --- " + .category + " --- |\n" + (.body + " (" + (.id|tostring) + ")")')
-assert_contains "$result" "| --- TODO --- |" "Should format category header"
-assert_contains "$result" "test memo (5)" "Should format memo with ID"
+  export MOCK_CURL_MODE=create_memo
 
-test_case "Category grouping works correctly"
-result=$(echo '[{"id":3,"body":"todo item","category":"TODO"},{"id":2,"body":"misc item","category":"MISC"}]' | jq -r 'group_by(.category) | sort_by(.[0].category) | reverse | .[0][0].category')
-assert_equal "TODO" "$result" "Categories should be sorted reverse alphabetically"
+  run bash "$SCRIPT" "hello world"
 
-# ============== JSON PARSING TESTS ==============
+  if grep -q "/memos/" "$TEST_TMP/curl.log"; then
+    pass "submit memo endpoint"
+  else
+    fail "submit memo endpoint"
+  fi
+}
 
-test_case "jq extracts memo body"
-result=$(echo '{"id":1,"body":"remember this","category":"MISC"}' | jq -r '.body')
-assert_equal "remember this" "$result" "jq should extract body"
+test_invalid_category() {
 
-test_case "jq extracts category"
-result=$(echo '{"id":1,"body":"remember this","category":"TODO"}' | jq -r '.category')
-assert_equal "TODO" "$result" "jq should extract category"
+  write_config
+  reset_logs
 
-test_case "jq filters by category"
-result=$(echo '[{"id":1,"category":"TODO"},{"id":2,"category":"MISC"}]' | jq -r '[.[] | select(.category=="TODO")] | length')
-assert_equal "1" "$result" "jq should filter by category"
+  run bash "$SCRIPT" "memo text" BADCAT
 
-# ============== SUMMARY ==============
+  if [[ "$output" == *"Invalid category"* ]]; then
+    pass "invalid category rejected"
+  else
+    fail "invalid category rejected"
+  fi
+}
 
-echo ""
-echo "======================================"
-echo "Test Results:"
-echo "  Total:  $TESTS_RUN"
-echo "  Passed: $TESTS_PASSED"
-echo "  Failed: $TESTS_FAILED"
-echo "======================================"
+test_view_default() {
 
-# Cleanup
-rm -rf "$TEST_DIR"
+  write_config
+  reset_logs
+  export MOCK_CURL_MODE=get_memos
 
-if [[ $TESTS_FAILED -gt 0 ]]; then
-    echo -e "${RED}Some tests failed!${NC}"
-    exit 1
-else
-    echo -e "${GREEN}All tests passed!${NC}"
-    exit 0
+  run bash "$SCRIPT" view
+
+  if grep -q "limit=5" "$TEST_TMP/curl.log"; then
+    pass "view default limit"
+  else
+    fail "view default limit"
+  fi
+}
+
+test_view_specific_id() {
+
+  write_config
+  reset_logs
+  export MOCK_CURL_MODE=get_single
+
+  run bash "$SCRIPT" view 5
+
+  if grep -q "/memos/5/" "$TEST_TMP/curl.log"; then
+    pass "view memo by id"
+  else
+    fail "view memo by id"
+  fi
+}
+
+test_view_category() {
+
+  write_config
+  reset_logs
+  export MOCK_CURL_MODE=get_memos
+
+  run bash "$SCRIPT" view TODO
+
+  if grep -q "category=TODO" "$TEST_TMP/curl.log"; then
+    pass "view category"
+  else
+    fail "view category"
+  fi
+}
+
+test_delete_specific() {
+
+  write_config
+  reset_logs
+  export MOCK_CURL_MODE=get_single
+
+  run bash "$SCRIPT" delete 5
+
+  if grep -q "/memos/5/" "$TEST_TMP/curl.log"; then
+    pass "delete memo fetch"
+  else
+    fail "delete memo fetch"
+  fi
+}
+
+test_undo() {
+
+  write_config
+  reset_logs
+  export MOCK_CURL_MODE=latest_memo
+
+  run bash "$SCRIPT" undo
+
+  if grep -q "latest=true" "$TEST_TMP/curl.log"; then
+    pass "undo fetch latest"
+  else
+    fail "undo fetch latest"
+  fi
+}
+
+test_http_error() {
+
+  write_config
+  export MOCK_CURL_MODE=error_500
+
+  run bash "$SCRIPT" view
+
+  if [[ $code -ne 0 ]]; then
+    pass "http error handled"
+  else
+    fail "http error handled"
+  fi
+}
+
+test_network_error() {
+
+  write_config
+  export MOCK_CURL_MODE=network_error
+
+  run bash "$SCRIPT" view
+
+  if [[ "$output" == *"Network error"* ]]; then
+    pass "network error handled"
+  else
+    fail "network error handled"
+  fi
+}
+
+############################################
+# Run all tests
+############################################
+
+test_usage
+test_submit_memo
+test_invalid_category
+test_view_default
+test_view_specific_id
+test_view_category
+test_delete_specific
+test_undo
+test_http_error
+test_network_error
+
+echo
+echo "Passed: $PASS"
+echo "Failed: $FAIL"
+
+if [[ $FAIL -ne 0 ]]; then
+  exit 1
 fi
+
+echo "All tests passed"
