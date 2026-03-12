@@ -409,8 +409,8 @@ delete_account() {
 }
 
 linkphone() {
-  echo "By linking your phone number, you agree to receive text messages from mrndm. Message and data rates may apply." 
-  echo "Messages will only ever be sent as a response to user input. Reply STOP to opt out." 
+  echo "By entering your phone number and texting the code, you agree to receive text messages from mrndm. Message and data rates may apply." 
+  echo "mrndm will only send you text messages in direct response to messages you send to mrndm. Reply STOP to opt out, or HELP for help." 
   echo "See our terms (https://mrndm.sh/tos) and Privacy Policy (https://mrndm.sh/privacypolicy). We do not share your information with third parties for marketing purposes."
   read -r -p "Please type 'y' or 'Y' to confirm; any other key will cancel. " confirm
   if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
