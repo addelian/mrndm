@@ -409,17 +409,27 @@ delete_account() {
 }
 
 linkphone() {
-  echo "By entering your phone number and texting the code, you agree to receive text messages from mrndm. Message and data rates may apply." 
-  echo "mrndm will only send you text messages in direct response to messages you send to mrndm. Message frequency will vary based on your interactions."
+  require_token
+  echo "By texting the following authentication code, you agree to receive text messages from mrndm."
+  echo "Message and data rates may apply." 
+  echo "mrndm will only send you text messages in direct response to messages you send to mrndm."
+  echo
+  echo "Message frequency will vary based on your interactions."
   echo "Reply STOP to opt out, or HELP for help." 
-  echo "See our terms (https://mrndm.sh/tos) and Privacy Policy (https://mrndm.sh/privacypolicy). We do not share your information with third parties for marketing purposes."
-  read -r -p "Please type 'y' or 'Y' to confirm; any other key will cancel. " confirm
+  echo
+  echo "See our terms (https://mrndm.sh/tos) and Privacy Policy (https://mrndm.sh/privacypolicy)."
+  echo "We do not share your information with third parties for marketing purposes."
+  echo
+  read -r -p "Please type 'y' or 'Y' to confirm; any other key will cancel: " confirm
   if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
     echo "Phone number linking cancelled."
     exit 0
   fi
-  read -r -p "Enter your phone number (with country code, e.g. +15551234567): " phone
-  echo "Text AUTH 7F92KD to +1 586-276-7636 to complete the linking process. This is a one-time code and will expire in 10 minutes."
+  if ! response=$(api_request POST "" "/auth/linkphone/"); then
+    exit 1
+  fi
+  echo "$response"
+  exit 0
 }
 
 # |-----------------------------|
