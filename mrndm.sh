@@ -518,7 +518,6 @@ handle_view() {
 
   if [[ $command = "-f" || $command = "f" || $command = "find" || $command = "grep" ]]; then
     option="${option// /%20}"
-    echo "option: $option"
     get_memos "/memos/?find=$option"
     return
   fi
