@@ -56,7 +56,7 @@ fi
 # if the first arg isn't a known command, treat it as the memo body
 if [[ -n $command ]]; then
   case $command in
-    -i|init|-v|view|-va|-m|memo|-d|delete|rm|-z|undo|-r|register|-h|help|-s|sync|login|-li|logout|-lo|-fp|forgotpassword|-mv|mv|move|-ls|ls|viewamt|deleteaccount|changeemail|me|self|user|logoutall|-la|linkphone)
+    -i|init|-v|view|-va|-m|memo|-d|delete|rm|-z|undo|-r|register|-h|help|-s|sync|login|-li|logout|-lo|-fp|forgotpassword|-mv|mv|move|-ls|ls|viewamt|deleteaccount|changeemail|me|self|user|logoutall|-la|linkphone|f|-f|find|grep)
       ;; # known commands; leave as-is
     *)
       option=$command
@@ -213,6 +213,7 @@ MEMO-RETRIEVING COMMANDS
   view <category>:          Shows all memos in the designated category
   viewamt <#> (-ls):        Shows the last <#> memos (grouped by category, newest to oldest)
   view all (-va):           Shows all memos (grouped by category, newest to oldest)
+  find <query> (-f):        Shows all memos that include the queried substring
 
 CATEGORIES
   MISC (default)
@@ -515,6 +516,13 @@ handle_view() {
     return
   fi
 
+  if [[ $command = "-f" || $command = "f" || $command = "find" || $command = "grep" ]]; then
+    option="${option// /%20}"
+    echo "option: $option"
+    get_memos "/memos/?find=$option"
+    return
+  fi
+
   if [[ $option =~ ^[0-9]+$ ]]; then
     get_memos "/memos/$option/"
     return
@@ -596,7 +604,7 @@ case $command in
     delete
     ;;
 
-  -v | view | -va | viewamt | -ls | ls | --all | -a)
+  -v | view | -va | viewamt | -ls | ls | --all | -a | -f | f | find | grep)
     handle_view
     ;;
 
